@@ -18,6 +18,7 @@ export interface BehaviourAPI {
   turn(dir: 'left' | 'right', degrees: number): void;
   climb(amount: number): void;   // negative dives
   weaponsFree(on: boolean): void;
+  target(id: string | null): void;   // prefer this enemy when it is in arc; null clears
   remember: Record<string, unknown>;   // scratch space that survives between ticks
 }
 
@@ -44,6 +45,7 @@ that runs every simulation tick (about 20 times per second) with one argument, \
   api.turn('left'|'right', degrees)   relative to the current desired heading
   api.climb(amount)           change desired altitude, negative dives
   api.weaponsFree(true|false) guns fire automatically at the nearest enemy in arc when free
+  api.target(id)              prefer this enemy (an id from api.enemies) whenever it is in arc; api.target(null) clears
   api.remember                an object that persists between ticks, for state
 
 Rules: no loops that never end, no async, no DOM, no imports. Only use the api. Keep it under 40 lines.
@@ -112,6 +114,7 @@ function apiFor(sim: Sim, s: Ship, dt: number): BehaviourAPI {
     turn: (dir, degrees) => { if (Number.isFinite(degrees)) s.desiredHeading = wrapDeg(s.desiredHeading + (dir === 'left' ? -degrees : degrees)); },
     climb: (amount) => { if (Number.isFinite(amount)) s.desiredAltitude += amount; },
     weaponsFree: (on) => { s.weaponsFree = !!on; },
+    target: (id) => { s.target = id ?? undefined; },
     remember: s.memory,
   };
 }

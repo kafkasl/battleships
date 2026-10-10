@@ -90,7 +90,7 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   const nouls = Object.fromEntries(Object.entries(WANTS).map(([k, v]) => ['wants_' + k, { type: 'noul', instructions: `Does the order ask the ship to do this: ${v}?` }]));
   // Several ships named in one breath ("Vigilant, Heron, Kestrel: move forward") need one yes/no per
   // addressee as well, for the same reason as the actions.
-  const addr = Object.fromEntries(Object.entries(roster).filter(([k]) => k !== 'enemy')
+  const addr = Object.fromEntries(Object.entries(roster)
     // The flagship's "default when nobody is named" clause must not leak into this question: here only names count.
     .map(([k, v]) => ['addr_' + k, { type: 'noul', instructions: `Is ${v.split('. Also')[0]} named in this order, or covered by a group word it uses (frigates, fighters, all ships)? Answer no if only a different ship is named, and no if no ship is named at all.` }]));
   const questions = {
@@ -130,6 +130,7 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     const group = (k: string) => k === 'frigates' || k === 'fighters';
     const unaddressed = ship.choice === 'flagship' && prob(ship) >= 0.7;
     for (const k of Object.keys(roster)) {
+      if (k === 'enemy') continue;
       const bar = unaddressed && !group(k) ? 0.85 : 0.6;
       if (k !== ship.choice && addrYes(k) >= bar) also.push(k);
     }

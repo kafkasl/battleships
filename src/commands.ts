@@ -8,7 +8,6 @@ const needs: Partial<Record<Command['op'], StationId>> = {
 };
 
 export function execute(ship: Ship, c: Command): Result {
-  if (ship.faction !== 'player') return { ok: false, reason: `${ship.name} does not answer to you.` };
   const station = needs[c.op];
   if (station && ship.stations[station] <= 0) return { ok: false, reason: `Nobody is on ${station === 'sensoria' ? 'sensors' : station}, captain.` };
   let msg: string;

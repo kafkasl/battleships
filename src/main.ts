@@ -155,12 +155,12 @@ function addressing() {
     flagship: 'Mother, our capital ship, the mothership, the flagship, the big ship. Also the default when the order names no particular ship',
     red: 'Red, the frigate named Red (not Blue)',
     blue: 'Blue, the frigate named Blue (not Red)',
-    frigates: 'both frigates: the frigates, Red and Blue, the escorts',
+    frigates: 'our two frigates Red and Blue: "frigates", "the frigates", "our frigates", "the escorts"',
     eagle1: 'the fighter Eagle 1, eagle one',
     eagle2: 'the fighter Eagle 2, eagle two',
     eagle3: 'the fighter Eagle 3, eagle three',
     fighters: 'all three fighters: the fighters, the eagles, the wing',
-    enemy: 'the enemy ship Dragon, the enemy capital ship, Fang, Claw, the drones, them',
+    enemy: 'the red fleet, the enemy side as a whole: Dragon, Fang, Claw, the drones, "enemy", "red team", "red fleet"',
   };
   const alive = (ships: Ship[]) => ships.filter((s) => sim.ships.has(s.id));
   const resolve = (label: string): Ship[] => {
@@ -168,7 +168,7 @@ function addressing() {
     if (label === 'frigates') return alive(frigates);
     if (label === 'fighters') return alive(alphas);
     if (label === 'all') return alive(fleet);
-    if (label === 'enemy') return alive([foe]);
+    if (label === 'enemy') return alive(hostiles);   // hot seat: the second player commands the red fleet as one
     const s = sim.ships.get(label);
     return s ? [s] : [];
   };

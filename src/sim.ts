@@ -28,6 +28,8 @@ export const SHIP_TYPES: Record<string, ShipType> = {
 export const BLIND_CONE = 90;
 /** Half-size of the square battle arena; ships beyond it are turned back. */
 export const ARENA = 1400;
+/** Enemy damage multiplier: the handicap that makes a well-ordered fleet win. */
+export const ENEMY_DAMAGE = 0.6;
 
 export type SimEvent =
   | { type: 'shot'; from: string; to: string; damage: number }
@@ -72,6 +74,7 @@ export interface Ship {
   rules: Rule[];
   contacts: Contact[];
   behaviour?: string;       // id of the behaviour this ship is running, if any
+  target?: string;          // preferred target id; the guns take it whenever it is in arc
   returning?: boolean;      // being steered back inside the arena
   memory?: Record<string, unknown>;
   color: string;            // the ship's colour in the log and on its grid marker
@@ -141,8 +144,12 @@ export class Sim {
     this.combat(dt);
   }
 
-  /** Nearest hostile the ship could hit right now, or null. */
+  /** The preferred target if it can be hit right now, else the nearest hostile that can, else null. */
   target(s: Ship): Ship | null {
+    if (s.target) {
+      const p = this.ships.get(s.target);
+      if (p && p.faction !== s.faction && canFireAt(s, p.pos)) return p;
+    }
     let best: Ship | null = null, bd = Infinity;
     for (const o of this.ships.values()) {
       if (o.faction === s.faction || o.faction === 'neutral') continue;
@@ -161,8 +168,10 @@ export class Sim {
       if (!t) continue;
       const type = SHIP_TYPES[s.type];
       s.cooldown = 1 / type.fireRate;
-      t.hull -= type.damage;
-      this.events.push({ type: 'shot', from: s.id, to: t.id, damage: type.damage });
+      // The enemy crews are green: their guns hit for less. A captain who gives good orders should win.
+      const damage = type.damage * (s.faction === 'enemy' ? ENEMY_DAMAGE : 1);
+      t.hull -= damage;
+      this.events.push({ type: 'shot', from: s.id, to: t.id, damage });
       if (t.hull <= 0 && !dead.includes(t)) dead.push(t);
     }
     for (const t of dead) {

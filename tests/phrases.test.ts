@@ -18,14 +18,14 @@ const roster = {
   flagship: 'Mother, our capital ship, the mothership, the flagship, the big ship. Also the default when the order names no particular ship',
   red: 'Red, the frigate named Red (not Blue)',
   blue: 'Blue, the frigate named Blue (not Red)',
-  frigates: 'both frigates: the frigates, Red and Blue, the escorts',
+  frigates: 'our two frigates Red and Blue: "frigates", "the frigates", "our frigates", "the escorts"',
   eagle1: 'the fighter Eagle 1, eagle one',
   eagle2: 'the fighter Eagle 2, eagle two',
   eagle3: 'the fighter Eagle 3, eagle three',
   fighters: 'all three fighters: the fighters, the eagles, the wing',
-  enemy: 'the enemy ship Dragon, the enemy capital ship, the drones, them',
+  enemy: 'the red fleet, the enemy side as a whole: Dragon, Fang, Claw, the drones, "enemy", "red team", "red fleet"',
 };
-const names = ['Mother', 'Red', 'Blue', 'Eagle 1', 'Eagle 2', 'Eagle 3', 'Dragon'];
+const names = ['Mother', 'Red', 'Blue', 'Eagle 1', 'Eagle 2', 'Eagle 3', 'Dragon', 'Fang', 'Claw', 'Drone 1', 'Drone 2', 'Drone 3'];
 const expand = (labels: string[]): Set<string> => new Set(labels.flatMap((l) =>
   l === 'all' ? ['flagship', 'red', 'blue', 'eagle1', 'eagle2', 'eagle3'] : l === 'frigates' ? ['red', 'blue'] : l === 'fighters' ? ['eagle1', 'eagle2', 'eagle3'] : [l]));
 
@@ -54,6 +54,7 @@ const CASES: Case[] = [
   { text: 'Blue, what are you doing', ships: ['blue'], ops: ['report'] },
   { text: 'climb 50', ships: ['flagship'], ops: ['climb'] },
   { text: 'Dragon, open fire', ships: ['enemy'], ops: ['fire'] },
+  { text: 'red fleet, engage', ships: ['enemy'], ops: ['behaviour'] },
 ];
 
 let failed = 0;
