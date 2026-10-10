@@ -13,8 +13,10 @@
       font: 11px/1.6 "SF Mono", Menlo, monospace; letter-spacing: 0.12em; text-transform: uppercase;
       pointer-events: none; text-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
     }
-    #hud b { display: block; font-size: 18px; letter-spacing: 0.35em; margin-bottom: 2px; }
-    #hud .goal { color: #ffd59a; }
+    #goal { position: fixed; left: 24px; top: 18px; color: #ffd59a; font: 13px/1.5 "SF Mono", Menlo, monospace; letter-spacing: 0.12em;
+      text-transform: uppercase; pointer-events: none; text-shadow: 0 0 12px rgba(0, 0, 0, 0.8); }
+    #hud { top: 44px; }
+    #hud.hidden { display: none; }
     #console { position: fixed; right: 24px; bottom: 20px; width: 520px; font: 13px/1.45 "SF Mono", Menlo, monospace; color: #e8d2c0; }
     #log { margin-bottom: 8px; max-height: 46vh; overflow: hidden; }
     .line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 3px 8px; margin-top: 3px;
@@ -90,7 +92,8 @@
       <div class="board"></div>
     </div>
   </div>
-  <div id="hud"><b>Battlefleet</b><span class="goal">Destroy the Dragon in 3 minutes. Give orders by voice or text.</span><br/>Enter: give an order · + Add manoeuvre: teach the fleet something new<br/>drag: orbit · right-drag or screen edge: pan · wheel: zoom · wasd: move · click ship: card · L: unlock / lock camera · G: grid · `: debug</div>
+  <div id="goal"><b>Goal: destroy the enemy! Mother must survive.</b></div>
+  <div id="hud">Enter: give an order · + Add manoeuvre: teach the fleet something new<br/>drag: orbit · right-drag or screen edge: pan · wheel: zoom · wasd: move · click ship: card · L: unlock / lock camera · G: grid · `: debug · H: hide this</div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

@@ -19,6 +19,12 @@ Agent (Claude Code): all source files, the procedural capital ship, the nebula s
 
 By hand: product direction and every design decision in `PLAN.md` (voice-only control, crew stations, altitude as a third primitive, no fog of war for the demo, the match loop and leaderboard, the academy as a one-shot button), playtesting with real dictation and reporting what misrouted, the demo script.
 
+## The three demo orders
+
+1. `All ships, full ahead and shoot the enemy.`
+2. `Mother and frigates, full ahead and open fire.`
+3. **+ Add manoeuvre** then `Eagles, stay behind Mother and shoot anything in range.`
+
 ## Setup
 
 ```

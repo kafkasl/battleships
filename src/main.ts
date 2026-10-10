@@ -29,7 +29,7 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(NEBULA_FOG, 0.00075);
 
 const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.5, 20000);
-camera.position.set(-220, 90, 820);
+camera.position.set(-220, 90, 710);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -39,7 +39,7 @@ controls.zoomSpeed = 0.8;
 controls.minDistance = 15;
 controls.maxDistance = 1800;
 controls.screenSpacePanning = true;
-controls.target.set(-40, 0, 520);
+controls.target.set(-40, 0, 410);
 let followCam = true;   // starts locked on the pinned ship (Mother); L toggles
 
 // ---- Lights --------------------------------------------------------------
@@ -89,6 +89,7 @@ addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'g') grid.visible = !grid.visible;
   if (k === 'l') followCam = !followCam;
+  if (k === 'h') document.getElementById('hud')!.classList.toggle('hidden');
   if (k in panKeys) { held.add(k); recomputePan(); e.preventDefault(); }
 });
 addEventListener('keyup', (e) => { held.delete(e.key.toLowerCase()); recomputePan(); });
@@ -117,24 +118,24 @@ const explosions = new ExplosionSystem(scene);
 
 const sim = new Sim();
 // Fleets face each other, staggered just enough sideways that a straight charge does not pass through the enemy.
-const player = sim.add(makeSimShip({ id: 'mother', name: 'Mother', type: 'capital', faction: 'player', pos: { x: -40, y: 0, z: 560 } }));
+const player = sim.add(makeSimShip({ id: 'mother', name: 'Mother', type: 'capital', faction: 'player', pos: { x: -40, y: 0, z: 450 }, hull: 340 }));
 const foe = sim.add(makeSimShip({ id: 'dragon', name: 'Dragon', type: 'capital', faction: 'enemy', color: '#ff6a5a',
-  pos: { x: 40, y: 10, z: -560 }, heading: 180, desiredHeading: 180, desiredAltitude: 10, weaponsFree: true, hull: 300 }));
+  pos: { x: 40, y: 10, z: -450 }, heading: 180, desiredHeading: 180, desiredAltitude: 10, weaponsFree: true, hull: 260 }));
 const raiders = [1, 2, 3, 4, 5, 6, 7].map((n) => sim.add(makeSimShip({
-  id: `drone${n}`, name: `Drone ${n}`, type: 'fighter', faction: 'enemy', color: '#ff8a7a', weaponsFree: true, hull: 20,
-  pos: { x: 40 + (n - 4) * 60, y: 10 + (n % 2) * 14, z: -460 - (n % 3) * 30 }, heading: 180, desiredHeading: 180, desiredAltitude: 10 + (n % 2) * 14,
+  id: `drone${n}`, name: `Drone ${n}`, type: 'drone', faction: 'enemy', color: '#ff8a7a', weaponsFree: true,
+  pos: { x: 40 + (n - 4) * 60, y: 10 + (n % 2) * 14, z: -350 - (n % 3) * 30 }, heading: 180, desiredHeading: 180, desiredAltitude: 10 + (n % 2) * 14,
 })));
 const hostiles = [foe, ...raiders];
 // The fleet you command. Names are chosen to be easy to say out loud.
 const red = sim.add(makeSimShip({ id: 'red', name: 'Red', type: 'frigate', faction: 'player', color: '#7fd3ff',
-  pos: { x: -170, y: 6, z: 600 }, desiredAltitude: 6 }));
+  pos: { x: -170, y: 6, z: 490 }, desiredAltitude: 6 }));
 const blue = sim.add(makeSimShip({ id: 'blue', name: 'Blue', type: 'frigate', faction: 'player', color: '#9fffd0',
-  pos: { x: 90, y: 6, z: 600 }, desiredAltitude: 6 }));
+  pos: { x: 90, y: 6, z: 490 }, desiredAltitude: 6 }));
 const frigates = [red, blue];
 const alphaColors = ['#c9b3ff', '#ffb3d9', '#ffe29a'];
 const alphas = [1, 2, 3].map((n) => sim.add(makeSimShip({
   id: `eagle${n}`, name: `Eagle ${n}`, type: 'fighter', faction: 'player', color: alphaColors[n - 1],
-  pos: { x: -40 + (n - 2) * 50, y: 14, z: 470 }, desiredAltitude: 14,
+  pos: { x: -40 + (n - 2) * 50, y: 14, z: 360 }, desiredAltitude: 14,
 })));
 player.color = '#ffd59a';
 foe.color = '#ff6a5a';

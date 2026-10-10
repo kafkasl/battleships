@@ -157,20 +157,27 @@ multiple player capital ships, 3D rule triggers (above / below).
 
 ## 6. Demo script: "why are we still clicking?"
 
-1. Open on the fleet in the nebula. Orbit the camera. "Space battles in 2026 and we still click on ships."
-2. "All ships, weapons free." "All ships, full ahead." Readbacks in crew voice, rings pulse. Beams fly.
-3. Watch the fighters overshoot Ravager. Their range arcs on the grid show the open cone astern: they
-   cannot shoot behind them. "Not ideal."
-4. "Fighters, circle clockwise around the enemy ships while firing at them." Alpha 1: "we don't know how to
-   do that yet." Academy line appears. ~10 s later: new manoeuvre learned, fighters wheel into orbit and keep
-   firing. "I just taught my fleet a manoeuvre by describing it."
-5. "Frigates, circle them too." Instant: Jev routes to the new manoeuvre, no LLM in the loop. Press D once to
-   show the intent line with `do_orbit_clockwise` as a new option.
-6. Ravager dies in a bloom of fire. "No more clicking. Intelligent behaviour, on the fly."
+Three runs, one sentence each. Open the stage laptop at `http://localhost:5173/?stage` so no manoeuvre is remembered.
+Ship names: Mother (capital), Red and Blue (frigates), Eagle 1-3 (fighters). Enemy: Dragon and seven drones.
 
-Fallbacks: speech-to-text misbehaves → type the order. Jev misroutes → say the ship name first.
-Academy down → the rehearsed Clockwise Orbit is baked in and loads automatically. "Alpha 1, belay that"
-if a manoeuvre misbehaves.
+1. **Run 1.** Say: `All ships, full ahead and shoot the enemy.`
+   Every ship answers "Weapons free." then "Full ahead." The fleet charges, overshoots the Dragon, the eagles get it
+   astern in their blind cone, stop firing and die. Expect a costly win. Save the score.
+2. **Run 2.** Play again. Say: `Mother and frigates, full ahead and open fire.`
+   Only those three answer. The eagles sit idle because nobody ordered them. Fewer losses, slower kill. "Safe, but useless."
+3. **Run 3.** Play again. Same order as run 2. Then press **+ Add manoeuvre** and say:
+   `Eagles, stay behind Mother and shoot anything in range.`
+   Eagle 1: "we don't know how to do that yet." Violet academy line for ~10 s. "New manoeuvre ready." Each eagle: "aye."
+   The eagles fall in astern of Mother and fire from cover. Expect a win with fewer losses and a higher place on the board.
+
+While the academy works: "that manoeuvre did not exist a moment ago. From now on 'eagles, stay behind Mother' routes to
+it in 300 ms through the classifier. No LLM in the game loop."
+
+Optional fourth sentence once it exists: `Frigates, circle the Dragon while firing.` (also a taught manoeuvre).
+
+Fallbacks: speech-to-text mangles a name → type it. Academy down → the rehearsed manoeuvre loads under the same phrase.
+A manoeuvre misbehaves → `Eagles, belay that.` Backtick shows the debug line (ship and intent probabilities, latency).
+Routing regression suite: `npm test` (23 phrases against the live Jev API).
 
 ## 7. Decisions made
 
