@@ -99,9 +99,10 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
       const d = await dispatch(text, roster, [...sim.ships.values()].map((s) => s.name), learned());
       if (teach) {
         d.intent = 'unsupported';
-        // A manoeuvre description is long and mentions several ships; only a sure fleet signal means "everyone".
+        // A manoeuvre description mentions other ships as references ("stay behind Mother"), so only the
+        // primary addressee takes it, unless the fleet signal is sure.
         const fleet = (d.answers.fleet as unknown as { noul: number } | undefined)?.noul ?? 0;
-        if (d.ships.includes('all') && fleet < 0.85) d.ships = [d.answers.ship.choice];
+        d.ships = fleet >= 0.85 ? ['all'] : [d.answers.ship.choice];
       }
       if (debug) pending.insertAdjacentHTML('beforeend', '<span class="detail"></span>');
       const det = pending.querySelector('.detail') as HTMLSpanElement | null;
