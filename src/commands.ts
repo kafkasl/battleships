@@ -8,43 +8,61 @@ const needs: Partial<Record<Command['op'], StationId>> = {
 };
 
 export function execute(ship: Ship, c: Command): Result {
+  if (ship.faction !== 'player') return { ok: false, reason: `${ship.name} does not answer to you.` };
   const station = needs[c.op];
-  if (station && ship.stations[station] <= 0) return { ok: false, reason: `nobody is on ${station}` };
+  if (station && ship.stations[station] <= 0) return { ok: false, reason: `Nobody is on ${station === 'sensoria' ? 'sensors' : station}, captain.` };
+  let msg: string;
   switch (c.op) {
     case 'setSpeed':
       ship.desiredSpeed = SPEED_LEVELS[c.level];
-      return { ok: true, msg: `${ship.name}: speed ${c.level}` };
+      msg = { stop: 'All stop.', slow: 'Slow ahead.', half: 'Half ahead.', full: 'Full ahead.' }[c.level];
+      break;
     case 'turn':
       ship.desiredHeading = wrapDeg(ship.desiredHeading + (c.dir === 'left' ? -c.amount : c.amount));
-      return { ok: true, msg: `${ship.name}: turning ${c.dir} ${c.amount}°, new heading ${Math.round(ship.desiredHeading)}` };
+      msg = `${c.dir === 'left' ? 'Port' : 'Starboard'} ${c.amount}, coming to ${hdg(ship.desiredHeading)}.`;
+      break;
     case 'setHeading':
       ship.desiredHeading = wrapDeg(c.deg);
-      return { ok: true, msg: `${ship.name}: heading ${Math.round(ship.desiredHeading)}` };
+      msg = `Coming to ${hdg(ship.desiredHeading)}.`;
+      break;
     case 'climb':
       ship.desiredAltitude += c.amount;
-      return { ok: true, msg: `${ship.name}: ${c.amount >= 0 ? 'climbing' : 'diving'} to ${Math.round(ship.desiredAltitude)}` };
+      msg = `${c.amount >= 0 ? 'Climbing' : 'Diving'} ${Math.abs(c.amount)}, to ${Math.round(ship.desiredAltitude)}.`;
+      break;
     case 'setAltitude':
       ship.desiredAltitude = c.y;
-      return { ok: true, msg: `${ship.name}: altitude ${Math.round(c.y)}` };
+      msg = `Altitude ${Math.round(c.y)}.`;
+      break;
     case 'fire':
-      return { ok: true, msg: `${ship.name}: firing${c.target ? ' at ' + c.target : ''}` };
+      msg = c.target ? `Firing on ${c.target}.` : 'Firing.';
+      break;
     case 'assignCrew': {
-      if (!STATIONS.includes(c.station)) return { ok: false, reason: `no station called ${c.station}` };
+      if (!STATIONS.includes(c.station)) return { ok: false, reason: `No station called ${c.station}.` };
+      if (c.n < 0) return { ok: false, reason: 'Crew count must be positive.' };
       const others = STATIONS.filter((s) => s !== c.station).reduce((a, s) => a + ship.stations[s], 0);
-      if (others + c.n > ship.crew) return { ok: false, reason: `only ${ship.crew - others} crew free` };
-      if (c.n < 0) return { ok: false, reason: 'crew count must be positive' };
+      if (others + c.n > ship.crew) return { ok: false, reason: `Only ${ship.crew - others} crew free, captain.` };
       ship.stations[c.station] = c.n;
-      return { ok: true, msg: `${ship.name}: ${c.n} crew on ${c.station}` };
+      msg = `${c.n} on ${c.station === 'sensoria' ? 'sensors' : c.station}.`;
+      break;
     }
   }
+  ship.lastOrder = msg;
+  return { ok: true, msg };
 }
 
-export function status(ship: Ship): string {
+const hdg = (d: number) => Math.round(d).toString().padStart(3, '0');
+
+/** Crew-voice situation report, for "report status" and the ship card. */
+export function report(ship: Ship): string {
   const t = SHIP_TYPES[ship.type];
-  const crew = STATIONS.map((s) => `${s} ${ship.stations[s]}`).join(', ');
-  return `${ship.name}: hdg ${Math.round(ship.heading)} (→${Math.round(ship.desiredHeading)}) · spd ${(ship.speed * t.speedMax).toFixed(0)} ` +
-    `· alt ${ship.pos.y.toFixed(0)} (→${ship.desiredAltitude.toFixed(0)}) · hull ${ship.hull} · crew ${ship.crew} [${crew}] · contacts ${ship.contacts.length}`;
+  const spd = ship.desiredSpeed === 0 ? 'stopped' : ship.desiredSpeed >= 1 ? 'full ahead' : ship.desiredSpeed >= 0.6 ? 'half ahead' : 'slow ahead';
+  const manned = STATIONS.filter((s) => ship.stations[s] > 0).map((s) => `${s === 'sensoria' ? 'sensors' : s} ${ship.stations[s]}`);
+  return `${spd}, heading ${hdg(ship.heading)}, altitude ${Math.round(ship.pos.y)}, speed ${Math.round(ship.speed * t.speedMax)}. ` +
+    `Hull ${ship.hull}. Crew: ${manned.length ? manned.join(', ') : 'nobody at a station'}. ` +
+    (ship.contacts.length ? `${ship.contacts.length} contact${ship.contacts.length > 1 ? 's' : ''}.` : 'No contacts.');
 }
+
+export function status(ship: Ship): string { return `${ship.name}: ${report(ship)}`; }
 
 /**
  * Text form of the command vocabulary, for the debug console. Jev will produce the same

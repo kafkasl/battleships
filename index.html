@@ -14,19 +14,33 @@
       pointer-events: none; text-shadow: 0 0 12px rgba(255, 180, 120, 0.4);
     }
     #hud b { display: block; font-size: 18px; letter-spacing: 0.35em; }
-    #console { position: fixed; right: 24px; bottom: 20px; width: 460px; font: 12px/1.5 "SF Mono", Menlo, monospace; color: #e8d2c0; }
-    #log { margin-bottom: 6px; text-shadow: 0 0 8px rgba(0,0,0,0.8); }
-    #log .in { color: #9fc8ff; } #log .ok { color: #c8e8c0; } #log .err { color: #ff9a7a; }
+    #console { position: fixed; right: 24px; bottom: 20px; width: 520px; font: 13px/1.45 "SF Mono", Menlo, monospace; color: #e8d2c0; }
+    #log { margin-bottom: 8px; max-height: 46vh; overflow: hidden; }
+    .line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; padding: 3px 8px; margin-top: 3px;
+      border-left: 3px solid transparent; background: rgba(10, 4, 6, 0.45); backdrop-filter: blur(4px); opacity: 0.55; }
+    .line:nth-last-child(-n+3) { opacity: 0.85; } .line:last-child { opacity: 1; }
+    .line.sure { border-left-color: #6fdc8c; } .line.hedge { border-left-color: #ffc14d; }
+    .line.refused { border-left-color: #ff5a5a; } .line.info { border-left-color: rgba(95, 200, 255, 0.4); }
+    .badge { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; border: 1px solid; padding: 1px 6px; border-radius: 2px; white-space: nowrap; }
+    .badge.you { color: #9fc8ff; border-color: rgba(159, 200, 255, 0.5); }
+    .line .text { flex: 1; } .line.refused .text { color: #ffb3a3; } .line.hedge .text { color: #ffe0a3; }
+    .detail { display: none; flex-basis: 100%; font-size: 11px; color: #8a7a70; }
+    #log.debug .detail { display: block; }
     #cmd { width: 100%; box-sizing: border-box; background: rgba(10, 4, 6, 0.55); border: 1px solid rgba(95, 200, 255, 0.35);
-      color: #e8f4ff; padding: 8px 10px; font: inherit; outline: none; backdrop-filter: blur(6px); }
+      color: #e8f4ff; padding: 9px 10px; font: inherit; outline: none; backdrop-filter: blur(6px); }
     #cmd:focus { border-color: rgba(95, 200, 255, 0.9); }
+    #inputs { position: fixed; right: 24px; top: 20px; margin: 0; padding: 10px 14px; color: #cfe8ff; min-width: 300px;
+      font: 12px/1.6 "SF Mono", Menlo, monospace; background: rgba(10, 4, 6, 0.45); border: 1px solid; border-color: #ffd59a;
+      backdrop-filter: blur(6px); pointer-events: none; white-space: pre; }
+    #inputs b { font-size: 16px; letter-spacing: 0.2em; text-transform: uppercase; } #inputs .cls { color: #8a7a70; } #inputs i { color: #e8d2c0; }
     #loading { position: fixed; inset: 0; display: grid; place-items: center; color: #e8d2c0;
       font: 14px "SF Mono", Menlo, monospace; letter-spacing: 0.3em; pointer-events: none; }
   </style>
 </head>
 <body>
   <div id="loading">LOADING FLEET</div>
-  <div id="hud"><b>Battlefleet</b><span id="status"></span><br/>drag: orbit · right-drag: pan · wheel: zoom · g: grid · enter: command</div>
+  <pre id="inputs"></pre>
+  <div id="hud"><b>Battlefleet</b>drag: orbit · right-drag: pan · wheel: zoom · click ship: pin card · g: grid · d: debug · enter: give an order</div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

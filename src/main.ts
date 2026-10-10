@@ -92,8 +92,73 @@ const sim = new Sim();
 const player = sim.add(makeSimShip({ id: 'vigilant', name: 'Vigilant', type: 'capital', faction: 'player', heading: 20, desiredHeading: 20 }));
 const foe = sim.add(makeSimShip({ id: 'ravager', name: 'Ravager', type: 'capital', faction: 'enemy',
   pos: { x: 260, y: 10, z: -300 }, heading: 200, desiredHeading: 200, desiredAltitude: 10, speed: 0.3, desiredSpeed: 0.3 }));
+// The fleet you command. Names are chosen to be easy to say out loud.
+const kestrel = sim.add(makeSimShip({ id: 'kestrel', name: 'Kestrel', type: 'frigate', faction: 'player', color: '#7fd3ff',
+  pos: { x: -120, y: 6, z: 40 }, heading: 20, desiredHeading: 20, desiredAltitude: 6 }));
+const heron = sim.add(makeSimShip({ id: 'heron', name: 'Heron', type: 'frigate', faction: 'player', color: '#9fffd0',
+  pos: { x: 120, y: 6, z: 40 }, heading: 20, desiredHeading: 20, desiredAltitude: 6 }));
+const frigates = [kestrel, heron];
+const alphaColors = ['#c9b3ff', '#ffb3d9', '#ffe29a'];
+const alphas = [1, 2, 3].map((n) => sim.add(makeSimShip({
+  id: `alpha${n}`, name: `Alpha ${n}`, type: 'fighter', faction: 'player', color: alphaColors[n - 1],
+  pos: { x: (n - 2) * 50, y: 14, z: 110 }, heading: 20, desiredHeading: 20, desiredAltitude: 14,
+})));
+player.color = '#ffd59a';
+foe.color = '#ff6a5a';
+const fleet = [player, ...frigates, ...alphas];
 const visuals = new Map<string, ShipVisual>();
-const ui = installConsole(sim, () => player);
+
+/** What Jev may address. Labels resolve to ships; descriptions teach Jev every way to say them. */
+function addressing() {
+  const roster: Record<string, string> = {
+    flagship: 'the Vigilant, our capital ship, the flagship, the carrier. Also the default: an order that names no ship, such as "full ahead" or "turn left"',
+    kestrel: 'the frigate Kestrel',
+    heron: 'the frigate Heron',
+    frigates: 'both frigates: the frigates, the escorts',
+    alpha1: 'the fighter Alpha 1, alpha one',
+    alpha2: 'the fighter Alpha 2, alpha two',
+    alpha3: 'the fighter Alpha 3, alpha three',
+    fighters: 'all three fighters: the fighters, the wing, alpha wing',
+    all: 'only when the order explicitly says "all ships", "whole fleet", "everyone" or "everybody"',
+    enemy: 'the enemy ship Ravager, the enemy capital ship, them',
+  };
+  const resolve = (label: string): Ship[] => {
+    if (label === 'flagship') return [player];
+    if (label === 'frigates') return frigates;
+    if (label === 'fighters') return alphas;
+    if (label === 'all') return fleet;
+    if (label === 'enemy') return [foe];
+    const s = sim.ships.get(label);
+    return s ? [s] : [];
+  };
+  return { roster, resolve };
+}
+
+// Ships flash their grid marker when they take an order.
+const flash = new Map<string, number>();
+installConsole(sim, () => player, addressing, (s) => flash.set(s.id, performance.now()));
+
+// Ship card: hover previews a ship, click pins it. Defaults to the flagship.
+let pinned: Ship = player;
+let hovered: Ship | null = null;
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let mouseMoved = false;
+renderer.domElement.addEventListener('pointermove', (e) => { mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); mouseMoved = true; });
+renderer.domElement.addEventListener('pointerdown', () => { mouseMoved = false; });
+renderer.domElement.addEventListener('pointerup', (e) => { if (e.button === 0 && !mouseMoved && hovered) pinned = hovered; });
+function pick(): Ship | null {
+  raycaster.setFromCamera(mouse, camera);
+  const roots = [...visuals.entries()].map(([id, v]) => { v.root.userData.shipId = id; return v.root; });
+  const hits = raycaster.intersectObjects(roots, true);
+  for (const h of hits) {
+    let o: THREE.Object3D | null = h.object;
+    while (o && !o.userData.shipId) o = o.parent;
+    if (o) return sim.ships.get(o.userData.shipId as string) ?? null;
+  }
+  return null;
+}
+const inputsPanel = document.getElementById('inputs')!;
 
 /** Thin vertical line from a ship to its shadow on the battle plane, Homeworld style. */
 function makeDropLine(): THREE.Line {
@@ -114,10 +179,18 @@ function syncVisual(s: Ship) {
   v.root.rotateZ(THREE.MathUtils.clamp(s.turning * 0.03, -0.25, 0.25));   // bank into turns
   v.engines.forEach((e) => { const k = 0.35 + 0.65 * s.speed; (e.children[1] as THREE.Sprite).scale.setScalar(e.userData.base * 2.4 * k); });
   let d = dropLines.get(s.id);
-  if (!d) { d = makeDropLine(); dropLines.set(s.id, d); scene.add(d); }
+  if (!d) {
+    d = makeDropLine(); dropLines.set(s.id, d); scene.add(d);
+    (d.material as THREE.LineBasicMaterial).color.set(s.color);
+    ((d.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).color.set(s.color);
+  }
+  const since = (performance.now() - (flash.get(s.id) ?? -1e9)) / 1000;
+  const ringMat = (d.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial;
+  ringMat.opacity = since < 1.2 ? 0.5 + 0.5 * Math.abs(Math.sin(since * 12)) * (1 - since / 1.2) : s === pinned ? 0.9 : 0.5;
   const pos = d.geometry.getAttribute('position') as THREE.BufferAttribute;
   pos.setXYZ(0, s.pos.x, 0, s.pos.z); pos.setXYZ(1, s.pos.x, s.pos.y, s.pos.z); pos.needsUpdate = true;
   (d.children[0] as THREE.Mesh).position.set(s.pos.x, 0.5, s.pos.z);
+  (d.children[0] as THREE.Mesh).scale.setScalar((s.type === 'capital' ? 2 : s.type === 'frigate' ? 1.2 : 0.8) * (since < 1.2 ? 1 + 0.6 * (1 - since / 1.2) : 1));
   d.visible = grid.visible;
 }
 
@@ -132,9 +205,20 @@ async function build() {
   visuals.set(player.id, flagship);
   scene.add(flagship.root);
 
+  for (const a of alphas) {
+    const v = await makeShip('fighter_a', 12, ENGINE_BLUE, 1);
+    visuals.set(a.id, v);
+    scene.add(v.root);
+  }
+  for (const [i, f] of frigates.entries()) {
+    const v = makeCapital({ length: 55, accent: 0xd2602e, engine: ENGINE_BLUE, seed: 11 + i });
+    visuals.set(f.id, v);
+    scene.add(v.root);
+  }
+
   // Escort wing: small ships in a loose sphere around the flagship, slowly circling.
   const fighters = ['fighter_a', 'fighter_b', 'fighter_c'];
-  for (let i = 0; i < 22; i++) {
+  for (let i = 0; i < 18; i++) {
     const v = await makeShip(fighters[i % 3], 7 + Math.random() * 5, ENGINE_BLUE, 1);
     wing.push({
       v, orbitR: 60 + Math.random() * 140, orbitSpeed: (0.02 + Math.random() * 0.04) * (Math.random() < 0.5 ? 1 : -1),
@@ -175,7 +259,6 @@ async function build() {
 // ---- Loop ----------------------------------------------------------------
 
 const clock = new THREE.Clock();
-const hud = document.getElementById('status')!;
 let nextBeam = 0;
 const tmp = new THREE.Vector3();
 
@@ -187,7 +270,18 @@ function tick() {
   sim.tick(dt);
   for (const s of sim.ships.values()) syncVisual(s);
   for (const v of visuals.values()) { v.engines.forEach((e, i) => flickerEngine(e, t, v.seed + i)); blinkLights(v, t); }
-  hud.textContent = `${player.name} · hdg ${Math.round(player.heading).toString().padStart(3, '0')} · spd ${Math.round(player.speed * 100)}% · alt ${Math.round(player.pos.y)}`;
+  hovered = pick();
+  const card = hovered ?? pinned;
+  document.body.style.cursor = hovered ? 'pointer' : '';
+  inputsPanel.style.borderColor = card.color;
+  inputsPanel.innerHTML = `<b style="color:${card.color}">${card.name}</b> <span class="cls">${card.type}${card === hovered && card !== pinned ? ' · click to pin' : ''}</span>\n` +
+    `<i>${card.lastOrder}</i>\n\n` +
+    `speed     ${Math.round(card.speed * 100)}%  →  ${Math.round(card.desiredSpeed * 100)}%\n` +
+    `heading   ${Math.round(card.heading).toString().padStart(3, '0')}  →  ${Math.round(card.desiredHeading).toString().padStart(3, '0')}\n` +
+    `altitude  ${Math.round(card.pos.y)}  →  ${Math.round(card.desiredAltitude)}\n` +
+    `hull      ${card.hull}\n` +
+    `crew      ${Object.entries(card.stations).map(([k, v]) => `${k === 'sensoria' ? 'sensors' : k} ${v}`).join(' · ')}  (${card.crew} aboard)\n` +
+    `contacts  ${card.contacts.length}`;
   // The enemy capital ship patrols in a slow circle so there is always something to shoot at.
   if (Math.floor(t / 20) !== Math.floor((t - dt) / 20)) foe.desiredHeading = (foe.desiredHeading + 60) % 360;
 

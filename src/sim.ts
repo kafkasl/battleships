@@ -16,6 +16,7 @@ export interface ShipType {
 
 export const SHIP_TYPES: Record<string, ShipType> = {
   capital: { id: 'capital', length: 150, speedMax: 18, turnRate: 9, climbRate: 10, accel: 0.25, sensorRange: 420 },
+  frigate: { id: 'frigate', length: 55, speedMax: 34, turnRate: 24, climbRate: 20, accel: 0.5, sensorRange: 520 },
   fighter: { id: 'fighter', length: 10, speedMax: 60, turnRate: 70, climbRate: 40, accel: 1.2, sensorRange: 250 },
 };
 
@@ -51,6 +52,8 @@ export interface Ship {
   stations: Record<StationId, number>;
   rules: Rule[];
   contacts: Contact[];
+  color: string;            // the ship's colour in the log and on its grid marker
+  lastOrder: string;        // crew-voice readback of the last order it carried out
 }
 
 export const SPEED_LEVELS = { stop: 0, slow: 0.3, half: 0.6, full: 1 } as const;
@@ -59,7 +62,7 @@ export function makeShip(p: Partial<Ship> & { id: string; name: string; type: st
   return {
     pos: { x: 0, y: 0, z: 0 }, heading: 0, speed: 0, desiredSpeed: 0, desiredHeading: 0, desiredAltitude: 0,
     turning: 0, hull: 100, crew: 3, stations: { engines: 1, sensoria: 0, analysis: 0, weapons: 0 },
-    rules: [], contacts: [], ...p,
+    rules: [], contacts: [], color: '#cfe8ff', lastOrder: 'holding position', ...p,
   };
 }
 

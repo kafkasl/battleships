@@ -155,3 +155,16 @@ sub-second, voice feels instant. If not, show a "processing" cue on the HUD.
 - Exact station list and crew counts per ship type.
 - Enemy variety and win/lose condition.
 - Whether to show a mini "sensor scope" HUD in addition to the 3D contacts.
+
+
+## Missing stuff
+
+- Collisions are horrible
+- Loadout screen for mechanics
+- Think what a demo mission could look like, make it engaging
+- They showed Steve Jobs iphone presentation as example of a good demo
+- I think the voice command is revolutionary
+- Age of Empires / Starcraft masters are ranked how many clicks per second they can do, this is clunky
+- Appeal to old gamers, "do you remember having to reassign idle workers to mine / forestry? it even had a button", why not just say "assign all idle workers" in voice while you are on the frontlines, or even better, leave it programmed!
+- Maybe the demo should showcase the "programmable behavior" rather than the loadout mechanics. 
+- Intelligent behaviours can 
