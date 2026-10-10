@@ -12,7 +12,8 @@ export const INTENTS = {
   setSpeed: 'change how fast the ship moves: full ahead, all ahead, half speed, slow, all stop, stop engines',
   turn: 'rotate the ship: turn left / right / port / starboard, come about, hard to port',
   climb: 'change altitude: climb, go up, dive, descend, go down, rise',
-  fire: 'shoot weapons, open fire, engage target',
+  fire: 'start shooting: open fire, weapons free, engage, fire at will, attack',
+  holdFire: 'stop shooting: hold fire, cease fire, stand down, weapons hold',
   assignCrew: 'move crew to a station: man the engines, put two on sensors, crew the weapons',
   report: 'ask for a status report: report, status, sitrep, what are you doing, where are you',
   unsupported: 'a real order, but one the ship has no way to carry out: formations, get in front of, follow, escort, intercept, dock, retreat to, repair, go to a place, anything not in the list above',
@@ -101,6 +102,7 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     case 'turn': used.push(a('turnDir')); if (n === undefined) used.push(a('turnAmount')); command = { op: 'turn', dir: a('turnDir').choice as 'left' | 'right', amount: n ?? Number(a('turnAmount').choice) }; break;
     case 'climb': used.push(a('climbDir')); if (n === undefined) used.push(a('climbAmount')); command = { op: 'climb', amount: (a('climbDir').choice === 'down' ? -1 : 1) * (n ?? Number(a('climbAmount').choice)) }; break;
     case 'fire': command = { op: 'fire' }; break;
+    case 'holdFire': command = { op: 'holdFire' }; break;
     case 'report': command = { op: 'report' }; break;
     case 'assignCrew': used.push(a('station')); if (n === undefined) used.push(a('crewCount')); command = { op: 'assignCrew', station: a('station').choice as StationId, n: n ?? Number(a('crewCount').choice) }; break;
   }

@@ -156,3 +156,52 @@ export function makeGrid(size = 4000): THREE.Mesh {
   mesh.renderOrder = 5;
   return mesh;
 }
+
+// ---- Explosions ---------------------------------------------------------
+
+interface Boom { group: THREE.Group; born: number; life: number; size: number; }
+
+export class ExplosionSystem {
+  booms: Boom[] = [];
+  constructor(private scene: THREE.Scene) {}
+
+  /** Flash, fireball, flying embers and a light that fades. `size` is roughly the ship's length. */
+  spawn(at: THREE.Vector3, size: number) {
+    const g = new THREE.Group();
+    g.position.copy(at);
+    const flash = glowSprite(0xfff4e0, size * 3);
+    const fire = glowSprite(0xff8a3a, size * 1.6);
+    const smoke = glowSprite(0x552a1a, size * 2.2, 0.5);
+    g.add(flash, fire, smoke);
+    for (let i = 0; i < 18; i++) {
+      const e = glowSprite(i % 3 ? 0xffb060 : 0xfff0d0, size * (0.12 + Math.random() * 0.18));
+      e.userData.vel = new THREE.Vector3().randomDirection().multiplyScalar(size * (0.6 + Math.random() * 1.6));
+      g.add(e);
+    }
+    const light = new THREE.PointLight(0xffa050, size * 40, size * 12, 1.5);
+    g.add(light);
+    this.scene.add(g);
+    this.booms.push({ group: g, born: performance.now() / 1000, life: 1.6, size });
+  }
+
+  update(now: number, dt: number) {
+    for (let i = this.booms.length - 1; i >= 0; i--) {
+      const b = this.booms[i];
+      const a = (now - b.born) / b.life;
+      if (a >= 1) { this.scene.remove(b.group); this.booms.splice(i, 1); continue; }
+      const [flash, fire, smoke, ...rest] = b.group.children;
+      const light = rest.pop() as THREE.PointLight;
+      (flash as THREE.Sprite).material.opacity = Math.max(0, 1 - a * 6);
+      (flash as THREE.Sprite).scale.setScalar(b.size * (3 + a * 6));
+      (fire as THREE.Sprite).material.opacity = Math.max(0, 1 - a * 1.6);
+      (fire as THREE.Sprite).scale.setScalar(b.size * (1.6 + a * 3));
+      (smoke as THREE.Sprite).material.opacity = 0.5 * Math.max(0, 1 - a);
+      (smoke as THREE.Sprite).scale.setScalar(b.size * (2.2 + a * 5));
+      for (const e of rest) {
+        e.position.addScaledVector(e.userData.vel as THREE.Vector3, dt);
+        (e as THREE.Sprite).material.opacity = Math.max(0, 1 - a * 1.3);
+      }
+      light.intensity = b.size * 40 * Math.max(0, 1 - a * 2.5);
+    }
+  }
+}

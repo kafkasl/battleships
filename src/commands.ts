@@ -4,7 +4,7 @@ import { type Command, type Ship, type StationId, SHIP_TYPES, SPEED_LEVELS, STAT
 export type Result = { ok: true; msg: string } | { ok: false; reason: string };
 
 const needs: Partial<Record<Command['op'], StationId>> = {
-  setSpeed: 'engines', turn: 'engines', setHeading: 'engines', climb: 'engines', setAltitude: 'engines', fire: 'weapons',
+  setSpeed: 'engines', turn: 'engines', setHeading: 'engines', climb: 'engines', setAltitude: 'engines',
 };
 
 export function execute(ship: Ship, c: Command): Result {
@@ -34,7 +34,12 @@ export function execute(ship: Ship, c: Command): Result {
       msg = `Altitude ${Math.round(c.y)}.`;
       break;
     case 'fire':
-      msg = c.target ? `Firing on ${c.target}.` : 'Firing.';
+      ship.weaponsFree = true;
+      msg = 'Weapons free.';
+      break;
+    case 'holdFire':
+      ship.weaponsFree = false;
+      msg = 'Holding fire.';
       break;
     case 'assignCrew': {
       if (!STATIONS.includes(c.station)) return { ok: false, reason: `No station called ${c.station}.` };
@@ -58,7 +63,7 @@ export function report(ship: Ship): string {
   const spd = ship.desiredSpeed === 0 ? 'stopped' : ship.desiredSpeed >= 1 ? 'full ahead' : ship.desiredSpeed >= 0.6 ? 'half ahead' : 'slow ahead';
   const manned = STATIONS.filter((s) => ship.stations[s] > 0).map((s) => `${s === 'sensoria' ? 'sensors' : s} ${ship.stations[s]}`);
   return `${spd}, heading ${hdg(ship.heading)}, altitude ${Math.round(ship.pos.y)}, speed ${Math.round(ship.speed * t.speedMax)}. ` +
-    `Hull ${ship.hull}. Crew: ${manned.length ? manned.join(', ') : 'nobody at a station'}. ` +
+    `Hull ${Math.round(ship.hull)} of ${ship.maxHull}, ${ship.weaponsFree ? 'weapons free' : 'holding fire'}. Crew: ${manned.length ? manned.join(', ') : 'nobody at a station'}. ` +
     (ship.contacts.length ? `${ship.contacts.length} contact${ship.contacts.length > 1 ? 's' : ''}.` : 'No contacts.');
 }
 
@@ -88,7 +93,8 @@ export function parse(text: string): Command | { error: string } {
     case 'climb': return { op: 'climb', amount: num(w[1], 50) };
     case 'dive': return { op: 'climb', amount: -num(w[1], 50) };
     case 'altitude': case 'alt': return { op: 'setAltitude', y: num(w[1], 0) };
-    case 'fire': return { op: 'fire', target: w[1] };
+    case 'fire': return { op: 'fire' };
+    case 'hold': return { op: 'holdFire' };
     case 'crew':
       if (STATIONS.includes(w[1] as StationId)) return { op: 'assignCrew', station: w[1] as StationId, n: num(w[2], 1) };
       return { error: `crew ${STATIONS.join('|')} <n>` };

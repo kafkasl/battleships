@@ -33,6 +33,12 @@
       font: 12px/1.6 "SF Mono", Menlo, monospace; background: rgba(10, 4, 6, 0.45); border: 1px solid; border-color: #ffd59a;
       backdrop-filter: blur(6px); pointer-events: none; white-space: pre; }
     #inputs b { font-size: 16px; letter-spacing: 0.2em; text-transform: uppercase; } #inputs .cls { color: #8a7a70; } #inputs i { color: #e8d2c0; }
+    #bars { position: fixed; inset: 0; pointer-events: none; }
+    .bar { position: absolute; transform: translate(-50%, -100%); width: 64px; font: 9px/1.2 "SF Mono", Menlo, monospace;
+      letter-spacing: 0.1em; text-transform: uppercase; text-align: center; opacity: 0.8; text-shadow: 0 0 6px #000; }
+    .bar .track { height: 3px; margin-top: 2px; background: rgba(0, 0, 0, 0.55); border: 1px solid rgba(255, 255, 255, 0.18); }
+    .bar .fill { height: 100%; transition: width 0.2s; }
+    .bar.hot .name::after { content: ' ▲'; color: #ffb060; }
     #loading { position: fixed; inset: 0; display: grid; place-items: center; color: #e8d2c0;
       font: 14px "SF Mono", Menlo, monospace; letter-spacing: 0.3em; pointer-events: none; }
   </style>
@@ -40,6 +46,7 @@
 <body>
   <div id="loading">LOADING FLEET</div>
   <pre id="inputs"></pre>
+  <div id="bars"></div>
   <div id="hud"><b>Battlefleet</b>drag: orbit · right-drag: pan · wheel: zoom · click ship: pin card · g: grid · d: debug · enter: give an order</div>
   <script type="module" src="/src/main.ts"></script>
 </body>

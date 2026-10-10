@@ -7,9 +7,9 @@ import {
 import { makeSky, SUN_DIR, NEBULA_FOG } from './sky';
 import { makeShip, makeRock, type ShipVisual } from './fleet';
 import { makeCapital, blinkLights } from './capital';
-import { Sim, makeShip as makeSimShip, type Ship } from './sim';
+import { Sim, makeShip as makeSimShip, type Ship, SHIP_TYPES, BLIND_CONE } from './sim';
 import { installConsole } from './console';
-import { BeamSystem, flickerEngine, makeDust, makeGrid } from './fx';
+import { BeamSystem, ExplosionSystem, flickerEngine, makeDust, makeGrid } from './fx';
 
 // ---- Renderer / scene / camera ------------------------------------------
 
@@ -85,13 +85,19 @@ composer.addPass(new EffectPass(camera, chroma));
 const ENGINE_BLUE = 0x6fa8ff;
 const ENGINE_RED = 0xff7a4a;
 const beams = new BeamSystem(scene);
+const explosions = new ExplosionSystem(scene);
 
 // ---- Simulation ----------------------------------------------------------
 
 const sim = new Sim();
 const player = sim.add(makeSimShip({ id: 'vigilant', name: 'Vigilant', type: 'capital', faction: 'player', heading: 20, desiredHeading: 20 }));
-const foe = sim.add(makeSimShip({ id: 'ravager', name: 'Ravager', type: 'capital', faction: 'enemy',
-  pos: { x: 260, y: 10, z: -300 }, heading: 200, desiredHeading: 200, desiredAltitude: 10, speed: 0.3, desiredSpeed: 0.3 }));
+const foe = sim.add(makeSimShip({ id: 'ravager', name: 'Ravager', type: 'capital', faction: 'enemy', color: '#ff6a5a',
+  pos: { x: 260, y: 10, z: -520 }, heading: 180, desiredHeading: 180, desiredAltitude: 10, weaponsFree: true, hull: 320 }));
+const raiders = [1, 2, 3, 4].map((n) => sim.add(makeSimShip({
+  id: `raider${n}`, name: `Raider ${n}`, type: 'fighter', faction: 'enemy', color: '#ff8a7a', weaponsFree: true, hull: 20,
+  pos: { x: 260 + (n - 2.5) * 70, y: 10 + (n % 2) * 14, z: -420 }, heading: 180, desiredHeading: 180, desiredAltitude: 10 + (n % 2) * 14,
+})));
+const hostiles = [foe, ...raiders];
 // The fleet you command. Names are chosen to be easy to say out loud.
 const kestrel = sim.add(makeSimShip({ id: 'kestrel', name: 'Kestrel', type: 'frigate', faction: 'player', color: '#7fd3ff',
   pos: { x: -120, y: 6, z: 40 }, heading: 20, desiredHeading: 20, desiredAltitude: 6 }));
@@ -121,12 +127,13 @@ function addressing() {
     fighters: 'all three fighters: the fighters, the wing, alpha wing',
     enemy: 'the enemy ship Ravager, the enemy capital ship, them',
   };
+  const alive = (ships: Ship[]) => ships.filter((s) => sim.ships.has(s.id));
   const resolve = (label: string): Ship[] => {
-    if (label === 'flagship') return [player];
-    if (label === 'frigates') return frigates;
-    if (label === 'fighters') return alphas;
-    if (label === 'all') return fleet;
-    if (label === 'enemy') return [foe];
+    if (label === 'flagship') return alive([player]);
+    if (label === 'frigates') return alive(frigates);
+    if (label === 'fighters') return alive(alphas);
+    if (label === 'all') return alive(fleet);
+    if (label === 'enemy') return alive([foe]);
     const s = sim.ships.get(label);
     return s ? [s] : [];
   };
@@ -146,6 +153,38 @@ let mouseMoved = false;
 renderer.domElement.addEventListener('pointermove', (e) => { mouse.set((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); mouseMoved = true; });
 renderer.domElement.addEventListener('pointerdown', () => { mouseMoved = false; });
 renderer.domElement.addEventListener('pointerup', (e) => { if (e.button === 0 && !mouseMoved && hovered) pinned = hovered; });
+// One bar per ship, projected onto the screen above it.
+const barsRoot = document.getElementById('bars')!;
+const bars = new Map<string, HTMLDivElement>();
+const proj = new THREE.Vector3();
+function updateHullBars() {
+  for (const [id, el] of bars) if (!sim.ships.has(id)) { el.remove(); bars.delete(id); }
+  for (const s of sim.ships.values()) {
+    const v = visuals.get(s.id);
+    if (!v) continue;
+    let el = bars.get(s.id);
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'bar';
+      el.innerHTML = `<span class="name"></span><div class="track"><div class="fill"></div></div>`;
+      (el.querySelector('.name') as HTMLSpanElement).textContent = s.name;
+      (el.querySelector('.fill') as HTMLDivElement).style.background = s.color;
+      el.style.color = s.color;
+      barsRoot.appendChild(el);
+      bars.set(s.id, el);
+    }
+    const L = SHIP_TYPES[s.type].length;
+    proj.set(s.pos.x, s.pos.y + L * 0.35 + 6, s.pos.z).project(camera);
+    const behind = proj.z > 1;
+    el.style.display = behind ? 'none' : '';
+    if (behind) continue;
+    el.style.left = `${((proj.x + 1) / 2) * innerWidth}px`;
+    el.style.top = `${((1 - proj.y) / 2) * innerHeight}px`;
+    (el.querySelector('.fill') as HTMLDivElement).style.width = `${Math.max(0, (s.hull / s.maxHull) * 100)}%`;
+    el.classList.toggle('hot', s.weaponsFree);
+  }
+}
+
 function pick(): Ship | null {
   raycaster.setFromCamera(mouse, camera);
   const roots = [...visuals.entries()].map(([id, v]) => { v.root.userData.shipId = id; return v.root; });
@@ -159,13 +198,23 @@ function pick(): Ship | null {
 }
 const inputsPanel = document.getElementById('inputs')!;
 
-/** Thin vertical line from a ship to its shadow on the battle plane, Homeworld style. */
-function makeDropLine(): THREE.Line {
+/**
+ * Thin vertical line from a ship to its shadow on the battle plane, Homeworld style, with a marker
+ * ring, and a faint arc at weapon range showing where the guns can reach (the stern cone is open).
+ */
+function makeDropLine(range: number): THREE.Line {
   const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
   const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0x5fc8ff, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false }));
-  const ring = new THREE.Mesh(new THREE.RingGeometry(5, 6, 32), new THREE.MeshBasicMaterial({ color: 0x5fc8ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0x5fc8ff, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
+  const ring = new THREE.Mesh(new THREE.RingGeometry(5, 6, 32), ringMat);
   ring.rotation.x = -Math.PI / 2;
-  line.add(ring);
+  // Arc: RingGeometry's theta runs counter-clockwise from +X in its own plane. Rotated flat onto the
+  // grid and spun by the heading, a start of (blind/2 + 90°) with length (360 - blind) leaves the stern open.
+  const blind = (BLIND_CONE * Math.PI) / 180;
+  const arc = new THREE.Mesh(new THREE.RingGeometry(range - 1.2, range, 96, 1, Math.PI / 2 + blind / 2, Math.PI * 2 - blind),
+    new THREE.MeshBasicMaterial({ color: 0x5fc8ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+  arc.rotation.x = -Math.PI / 2;
+  line.add(ring, arc);
   return line;
 }
 const dropLines = new Map<string, THREE.Line>();
@@ -179,10 +228,15 @@ function syncVisual(s: Ship) {
   v.engines.forEach((e) => { const k = 0.35 + 0.65 * s.speed; (e.children[1] as THREE.Sprite).scale.setScalar(e.userData.base * 2.4 * k); });
   let d = dropLines.get(s.id);
   if (!d) {
-    d = makeDropLine(); dropLines.set(s.id, d); scene.add(d);
+    d = makeDropLine(SHIP_TYPES[s.type].weaponRange); dropLines.set(s.id, d); scene.add(d);
     (d.material as THREE.LineBasicMaterial).color.set(s.color);
     ((d.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).color.set(s.color);
+    ((d.children[1] as THREE.Mesh).material as THREE.MeshBasicMaterial).color.set(s.color);
   }
+  const arc = d.children[1] as THREE.Mesh;
+  arc.position.set(s.pos.x, 0.3, s.pos.z);
+  arc.rotation.z = -s.heading * Math.PI / 180;
+  ((arc.material as THREE.MeshBasicMaterial).opacity = s.weaponsFree ? 0.3 : 0.1);
   const since = (performance.now() - (flash.get(s.id) ?? -1e9)) / 1000;
   const ringMat = (d.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial;
   ringMat.opacity = since < 1.2 ? 0.5 + 0.5 * Math.abs(Math.sin(since * 12)) * (1 - since / 1.2) : s === pinned ? 0.9 : 0.5;
@@ -193,9 +247,7 @@ function syncVisual(s: Ship) {
   d.visible = grid.visible;
 }
 
-interface Actor { v: ShipVisual; orbitR: number; orbitSpeed: number; phase: number; y: number; }
 let flagship: ShipVisual | null = null;
-const enemies: Actor[] = [];
 const rocks: THREE.Group[] = [];
 
 async function build() {
@@ -214,19 +266,15 @@ async function build() {
     scene.add(v.root);
   }
 
-  // Enemy line, far off to the sun side, so beams cross the frame.
-  const kinds: [string, number][] = [['enemy_large', 55], ['enemy_small', 14], ['enemy_flying', 16]];
-  for (let i = 0; i < 9; i++) {
-    const [k, L] = kinds[i === 0 ? 0 : 1 + (i % 2)];
-    if (i === 0) {
-      const v = makeCapital({ length: 130, accent: 0xb3242a, engine: ENGINE_RED, seed: 42 });
-      visuals.set(foe.id, v);
-      scene.add(v.root);
-      continue;
-    }
-    const v = await makeShip(k, L, ENGINE_RED, 1);
-    const a = { v, orbitR: 300 + Math.random() * 120, orbitSpeed: 0.006 + Math.random() * 0.01, phase: -0.35 + (Math.random() - 0.5) * 0.9, y: (Math.random() - 0.5) * 50 };
-    enemies.push(a);
+  // The enemy line, off toward the sun.
+  {
+    const v = makeCapital({ length: 130, accent: 0xb3242a, engine: ENGINE_RED, seed: 42 });
+    visuals.set(foe.id, v);
+    scene.add(v.root);
+  }
+  for (const r of raiders) {
+    const v = await makeShip('enemy_small', 12, ENGINE_RED, 1);
+    visuals.set(r.id, v);
     scene.add(v.root);
   }
 
@@ -246,7 +294,6 @@ async function build() {
 // ---- Loop ----------------------------------------------------------------
 
 const clock = new THREE.Clock();
-let nextBeam = 0;
 const tmp = new THREE.Vector3();
 
 function tick() {
@@ -258,6 +305,7 @@ function tick() {
   for (const s of sim.ships.values()) syncVisual(s);
   for (const v of visuals.values()) { v.engines.forEach((e, i) => flickerEngine(e, t, v.seed + i)); blinkLights(v, t); }
   hovered = pick();
+  if (!sim.ships.has(pinned.id)) pinned = player;
   const card = hovered ?? pinned;
   document.body.style.cursor = hovered ? 'pointer' : '';
   inputsPanel.style.borderColor = card.color;
@@ -266,43 +314,45 @@ function tick() {
     `speed     ${Math.round(card.speed * 100)}%  →  ${Math.round(card.desiredSpeed * 100)}%\n` +
     `heading   ${Math.round(card.heading).toString().padStart(3, '0')}  →  ${Math.round(card.desiredHeading).toString().padStart(3, '0')}\n` +
     `altitude  ${Math.round(card.pos.y)}  →  ${Math.round(card.desiredAltitude)}\n` +
-    `hull      ${card.hull}\n` +
+    `hull      ${Math.round(card.hull)} / ${card.maxHull}   ${card.weaponsFree ? 'weapons free' : 'holding fire'}\n` +
     `crew      ${Object.entries(card.stations).map(([k, v]) => `${k === 'sensoria' ? 'sensors' : k} ${v}`).join(' · ')}  (${card.crew} aboard)\n` +
     `contacts  ${card.contacts.length}`;
   // The enemy capital ship patrols in a slow circle so there is always something to shoot at.
   if (Math.floor(t / 20) !== Math.floor((t - dt) / 20)) foe.desiredHeading = (foe.desiredHeading + 60) % 360;
 
-  for (const a of enemies) {
-    const ang = a.phase + t * a.orbitSpeed;
-    a.v.root.position.set(foe.pos.x + Math.cos(ang) * a.orbitR * 0.3, foe.pos.y + a.y, foe.pos.z + Math.sin(ang) * a.orbitR * 0.3);
-    a.v.root.lookAt(player.pos.x, player.pos.y, player.pos.z);
-    a.v.engines.forEach((e) => flickerEngine(e, t, a.v.seed));
-  }
   for (const r of rocks) {
     const s = r.userData.spin as THREE.Vector3;
     r.rotation.x += s.x * dt; r.rotation.y += s.y * dt; r.rotation.z += s.z * dt;
   }
 
-  // Exchange of fire: the fleet and the enemy line trade ion beams.
-  const foeVisual = visuals.get(foe.id);
-  if (t > nextBeam && flagship && foeVisual && enemies.length) {
-    nextBeam = t + 0.12 + Math.random() * 0.5;
-    const r = Math.random();
-    const enemyPos = () => (Math.random() < 0.4 ? foeVisual : enemies[Math.floor(Math.random() * enemies.length)].v).root.position.clone();
-    if (r < 0.35) {
-      const from = flagship.root.localToWorld(new THREE.Vector3((Math.random() < 0.5 ? -1 : 1) * 16, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 90));
-      beams.fire(from, enemyPos(), 0x8fa6ff, 0.9, 0.7);
-    } else if (r < 0.7) {
-      const w = visuals.get(fleet[1 + Math.floor(Math.random() * (fleet.length - 1))].id);
-      if (w) beams.fire(w.root.position.clone(), enemyPos(), 0x9fb6ff, 0.35, 0.35);
+  // Combat visuals come from sim events: a travelling beam per shot, an explosion per death.
+  for (const ev of sim.events) {
+    if (ev.type === 'shot') {
+      const from = visuals.get(ev.from), to = visuals.get(ev.to), shooter = sim.ships.get(ev.from);
+      if (!from || !to || !shooter) continue;
+      const L = SHIP_TYPES[shooter.type].length;
+      const muzzle = from.root.localToWorld(new THREE.Vector3((Math.random() < 0.5 ? -1 : 1) * L * 0.1, (Math.random() - 0.5) * L * 0.05, (Math.random() - 0.5) * L * 0.6));
+      const hostile = shooter.faction === 'enemy';
+      beams.fire(muzzle, to.root.position.clone(), hostile ? 0xff8a5a : 0x8fa6ff, L * 0.006 + 0.25, 0.45);
     } else {
-      const from = Math.random() < 0.5
-        ? foeVisual.root.localToWorld(new THREE.Vector3((Math.random() < 0.5 ? -1 : 1) * 14, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 80))
-        : enemies[Math.floor(Math.random() * enemies.length)].v.root.position.clone();
-      const target = (Math.random() < 0.4 ? flagship : visuals.get(fleet[1 + Math.floor(Math.random() * (fleet.length - 1))].id) ?? flagship).root.position.clone();
-      beams.fire(from, target, 0xff8a5a, 0.5, 0.35);
+      const v = visuals.get(ev.id);
+      if (v) { scene.remove(v.root); visuals.delete(ev.id); }
+      const d = dropLines.get(ev.id);
+      if (d) { scene.remove(d); dropLines.delete(ev.id); }
+      explosions.spawn(new THREE.Vector3(ev.pos.x, ev.pos.y, ev.pos.z), ev.length);
+      if (pinned.id === ev.id) pinned = player;
     }
   }
+  sim.events.length = 0;
+  explosions.update(performance.now() / 1000, dt);
+  // Enemy doctrine for now: hold position, keep the guns on the nearest of ours.
+  for (const h of hostiles) {
+    if (!sim.ships.has(h.id)) continue;
+    let near: Ship | null = null, nd = Infinity;
+    for (const f of fleet) { if (!sim.ships.has(f.id)) continue; const dd = Math.hypot(f.pos.x - h.pos.x, f.pos.z - h.pos.z); if (dd < nd) { nd = dd; near = f; } }
+    if (near) h.desiredHeading = (Math.atan2(near.pos.x - h.pos.x, -(near.pos.z - h.pos.z)) * 180) / Math.PI;
+  }
+  updateHullBars();
   beams.update(performance.now() / 1000);
 
   // Camera stays glued to the flagship: move the orbit target (and the camera with it) by its motion.
