@@ -9,7 +9,7 @@ type Choice = { type: 'choice'; instructions: string; criteria: Record<string, s
 const choice = (instructions: string, criteria: Record<string, string | null>): Choice => ({ type: 'choice', instructions, criteria });
 
 export const INTENTS = {
-  setSpeed: 'change how fast the ship moves: full ahead, all ahead, half speed, slow, all stop, stop engines',
+  setSpeed: 'change how fast the ship moves: full ahead, all ahead, go forward, advance, move out, half speed, slow, all stop, stop engines',
   turn: 'rotate the ship: turn left / right / port / starboard, come about, hard to port',
   climb: 'change altitude: climb, go up, dive, descend, go down, rise',
   fire: 'start shooting and nothing else: open fire, weapons free, engage, fire at will',
@@ -25,7 +25,7 @@ const QUESTIONS = {
   intent: choice('What kind of order did the captain give?', INTENTS),
   speedLevel: choice('If this is a speed order, which speed is requested?', {
     stop: 'stop, halt, all stop, cut engines', slow: 'slow, a third, dead slow, creep',
-    half: 'half speed, cruise', full: 'full speed, full ahead, all ahead, all ahead full, flank, maximum, punch it',
+    half: 'half speed, cruise', full: 'full speed, full ahead, all ahead, all ahead full, go forward, advance, flank, maximum, punch it',
   }),
   turnDir: choice('If this is a turn order, which way?', { left: 'left, port, counter-clockwise', right: 'right, starboard, clockwise' }),
   turnAmount: choice('If this is a turn order, roughly how far in degrees?', {
@@ -48,9 +48,11 @@ export type Roster = Record<string, string>;
 
 export interface JevAnswer { choice: string; confidence: number; probabilities: Record<string, number>; }
 export interface Dispatch {
-  command: Order | null;
+  command: Order | null;    // the primary order (from the intent choice)
+  extras: Order[];          // further orders in the same breath ("full ahead AND engage"), from yes/no questions
   intent: string;
-  ship: string;            // roster label
+  ship: string;            // roster label of the primary addressee
+  ships: string[];         // all addressees, primary first
   confidence: number;      // the weakest judgement used, as in the TypeSafe function-calling cookbook
   weakest: string;         // name of that judgement
   latency: number;
@@ -76,8 +78,23 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   for (const n of shipNames) stripped = stripped.replace(new RegExp(n.replace(/\s+/g, '\\s*'), 'gi'), ' ');
   const intents: Record<string, string> = { ...INTENTS };
   for (const [id, b] of Object.entries(learned)) intents['do_' + id] = `the manoeuvre "${b.name}": ${b.description}`;
+  // A choice returns one intent. Compound orders need one yes/no per action as well; those catch the
+  // second verb in "full ahead and engage". The choice stays primary because it is far better at
+  // telling an unsupported request from noise.
+  const WANTS: Record<string, string> = {
+    setSpeed: INTENTS.setSpeed, turn: INTENTS.turn, climb: INTENTS.climb, fire: INTENTS.fire, holdFire: INTENTS.holdFire,
+    assignCrew: INTENTS.assignCrew, report: INTENTS.report, stopBehaviour: INTENTS.stopBehaviour,
+  };
+  for (const [id, b] of Object.entries(learned)) WANTS['do_' + id] = `the manoeuvre "${b.name}": ${b.description}`;
+  const nouls = Object.fromEntries(Object.entries(WANTS).map(([k, v]) => ['wants_' + k, { type: 'noul', instructions: `Does the order ask the ship to do this: ${v}?` }]));
+  // Several ships named in one breath ("Vigilant, Heron, Kestrel: move forward") need one yes/no per
+  // addressee as well, for the same reason as the actions.
+  const addr = Object.fromEntries(Object.entries(roster).filter(([k]) => k !== 'enemy')
+    .map(([k, v]) => ['addr_' + k, { type: 'noul', instructions: `Is this ship or group among those the order is addressed to: ${v}?` }]));
   const questions = {
     ...QUESTIONS,
+    ...nouls,
+    ...addr,
     intent: choice('What kind of order did the captain give?', intents),
     ship: choice('Which ship or group is the order addressed to?', roster),
     // Fleet-wide addressing is its own yes/no question. Inside the ship choice, an "all ships" option
@@ -101,10 +118,23 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   // `confidence` field is more conservative and hedged on orders as plain as "full ahead".
   const prob = (x: JevAnswer) => x.probabilities[x.choice] ?? x.confidence;
   const fleet = (answers.fleet as unknown as { noul: number }).noul;
-  const ship: JevAnswer = fleet >= 0.85 ? { choice: 'all', confidence: fleet, probabilities: { all: fleet } } : a('ship');
+  let ship: JevAnswer = fleet >= 0.85 ? { choice: 'all', confidence: fleet, probabilities: { all: fleet } } : a('ship');
+  const also: string[] = [];
+  if (ship.choice !== 'all') {
+    for (const k of Object.keys(roster)) {
+      const yes = (answers['addr_' + k] as unknown as { noul: number } | undefined)?.noul ?? 0;
+      if (k !== ship.choice && yes >= 0.6) also.push(k);
+    }
+    // With several addressees the single choice is split between them by design; judge it by the strongest yes.
+    if (also.length) {
+      const best = Math.max(prob(ship), ...also.map((k) => (answers['addr_' + k] as unknown as { noul: number }).noul));
+      ship = { ...ship, probabilities: { ...ship.probabilities, [ship.choice]: best } };
+    }
+  }
   const used: JevAnswer[] = [intent, ship];
+  const build = (kind: string): Order | null => {
   let command: Order | null = null;
-  switch (intent.choice) {
+  switch (kind) {
     case 'setSpeed': used.push(a('speedLevel')); command = { op: 'setSpeed', level: a('speedLevel').choice as 'stop' | 'slow' | 'half' | 'full' }; break;
     case 'turn': used.push(a('turnDir')); if (n === undefined) used.push(a('turnAmount')); command = { op: 'turn', dir: a('turnDir').choice as 'left' | 'right', amount: n ?? Number(a('turnAmount').choice) }; break;
     case 'climb': used.push(a('climbDir')); if (n === undefined) used.push(a('climbAmount')); command = { op: 'climb', amount: (a('climbDir').choice === 'down' ? -1 : 1) * (n ?? Number(a('climbAmount').choice)) }; break;
@@ -112,15 +142,24 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     case 'holdFire': command = { op: 'holdFire' }; break;
     case 'stopBehaviour': command = { op: 'stopBehaviour' }; break;
     default:
-      if (intent.choice.startsWith('do_')) { const id = intent.choice.slice(3); command = { op: 'behaviour', id, name: learned[id]?.name ?? id }; }
+      if (kind.startsWith('do_')) { const id = kind.slice(3); command = { op: 'behaviour', id, name: learned[id]?.name ?? id }; }
       break;
     case 'report': command = { op: 'report' }; break;
     case 'assignCrew': used.push(a('station')); if (n === undefined) used.push(a('crewCount')); command = { op: 'assignCrew', station: a('station').choice as StationId, n: n ?? Number(a('crewCount').choice) }; break;
   }
+  return command;
+  };
+  const command = build(intent.choice);
+  const extras: Order[] = [];
+  for (const k of Object.keys(WANTS)) {
+    if (k === intent.choice) continue;
+    const yes = (answers['wants_' + k] as unknown as { noul: number } | undefined)?.noul ?? 0;
+    if (yes >= 0.6) { const c = build(k); if (c) extras.push(c); }
+  }
   const confidence = Math.min(...used.map(prob));
   const weakest = used.map((u) => [u === ship ? 'ship' : Object.keys(answers).find((k) => answers[k] === u) ?? '?', prob(u)] as const)
     .sort((x, y) => x[1] - y[1])[0]?.[0] ?? 'intent';
-  const out: Dispatch = { command, intent: intent.choice, ship: ship.choice, confidence, weakest, latency, answers };
+  const out: Dispatch = { command, extras, intent: intent.choice, ship: ship.choice, ships: [ship.choice, ...also], confidence, weakest, latency, answers };
   if (intent.choice === 'none') out.reason = 'not an order';
   else if (intent.choice === 'unsupported') out.reason = 'unsupported';
   else if (confidence < 0.45) { out.reason = `unsure (${Math.round(confidence * 100)}%)`; out.command = null; }

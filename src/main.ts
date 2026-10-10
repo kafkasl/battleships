@@ -7,7 +7,7 @@ import {
 import { makeSky, SUN_DIR, NEBULA_FOG } from './sky';
 import { makeShip, makeRock, type ShipVisual } from './fleet';
 import { makeCapital, blinkLights } from './capital';
-import { Sim, makeShip as makeSimShip, type Ship, SHIP_TYPES, BLIND_CONE } from './sim';
+import { Sim, makeShip as makeSimShip, type Ship, SHIP_TYPES, BLIND_CONE, ARENA } from './sim';
 import { installConsole } from './console';
 import { runBehaviours, behaviours } from './behaviours';
 import { restore } from './academy';
@@ -69,6 +69,11 @@ scene.add(makeDust(2500, 900));
 const grid = makeGrid();
 grid.visible = true;
 scene.add(grid);
+// Arena outline: the square ships are kept inside. Shown and hidden with the grid.
+const arenaEdge = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints([[-ARENA, -ARENA], [ARENA, -ARENA], [ARENA, ARENA], [-ARENA, ARENA], [-ARENA, -ARENA]].map(([x, z]) => new THREE.Vector3(x, 0.4, z))),
+  new THREE.LineBasicMaterial({ color: 0x5fc8ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+scene.add(arenaEdge);
 let panX = 0, panZ = 0;
 const panKeys: Record<string, [number, number]> = { w: [0, 1], arrowup: [0, 1], s: [0, -1], arrowdown: [0, -1], a: [-1, 0], arrowleft: [-1, 0], d: [1, 0], arrowright: [1, 0] };
 const held = new Set<string>();
@@ -278,10 +283,18 @@ function makeDropLine(range: number): THREE.Line {
   ring.rotation.x = -Math.PI / 2;
   // Arc: RingGeometry's theta runs counter-clockwise from +X in its own plane. Rotated flat onto the
   // grid and spun by the heading, a start of (blind/2 + 90°) with length (360 - blind) leaves the stern open.
+  // In the ring's own plane, theta 90° is the bow (world -Z after the flat rotation) and 270° the stern.
   const blind = (BLIND_CONE * Math.PI) / 180;
-  const arc = new THREE.Mesh(new THREE.RingGeometry(range - 1.2, range, 96, 1, Math.PI / 2 + blind / 2, Math.PI * 2 - blind),
+  const stern = Math.PI * 1.5;
+  const arc = new THREE.Mesh(new THREE.RingGeometry(range - 1.2, range, 96, 1, stern + blind / 2, Math.PI * 2 - blind),
     new THREE.MeshBasicMaterial({ color: 0x5fc8ff, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
   arc.rotation.x = -Math.PI / 2;
+  // The two edges of the blind sector, so the gap reads as "cannot fire here" rather than a missing piece.
+  const edges = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints([-1, 1].flatMap((sgn) => {
+    const th = stern + sgn * blind / 2;
+    return [new THREE.Vector3(0, 0, 0), new THREE.Vector3(Math.cos(th) * range, Math.sin(th) * range, 0)];
+  })), new THREE.LineBasicMaterial({ color: 0x5fc8ff, transparent: true, opacity: 0.18, blending: THREE.AdditiveBlending, depthWrite: false }));
+  arc.add(edges);
   line.add(ring, arc);
   return line;
 }
@@ -304,7 +317,8 @@ function syncVisual(s: Ship) {
   const arc = d.children[1] as THREE.Mesh;
   arc.position.set(s.pos.x, 0.3, s.pos.z);
   arc.rotation.z = -s.heading * Math.PI / 180;
-  ((arc.material as THREE.MeshBasicMaterial).opacity = s.weaponsFree ? 0.3 : 0.1);
+  (arc.material as THREE.MeshBasicMaterial).opacity = s.weaponsFree ? 0.3 : 0.1;
+  ((arc.children[0] as THREE.LineSegments).material as THREE.LineBasicMaterial).color.set(s.color);
   const since = (performance.now() - (flash.get(s.id) ?? -1e9)) / 1000;
   const ringMat = (d.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial;
   ringMat.opacity = since < 1.2 ? 0.5 + 0.5 * Math.abs(Math.sin(since * 12)) * (1 - since / 1.2) : s === pinned ? 0.9 : 0.5;
@@ -449,6 +463,7 @@ function tick() {
   }
   controls.update();
   (grid.material as THREE.ShaderMaterial).uniforms.uCenter.value.copy(controls.target);
+  arenaEdge.visible = grid.visible;
   composer.render(dt);
 }
 

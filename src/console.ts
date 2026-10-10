@@ -1,10 +1,10 @@
 // Order log: one line per ship per order, built for a glance: badge in the ship's colour, a
 // crew-voice readback, and a confidence tier shown as a colour bar. D toggles the debug detail.
 import { parse, execute, report } from './commands';
-import { dispatch, type Roster, type Dispatch, type Learned } from './jev';
+import { dispatch, type Roster, type Dispatch, type Learned, type Order } from './jev';
 import { behaviours } from './behaviours';
 import { learn } from './academy';
-import type { Sim, Ship, Command } from './sim';
+import type { Sim, Ship } from './sim';
 
 export interface Addressing {
   roster: Roster;                                   // label -> description, sent to Jev
@@ -25,8 +25,21 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
   const log = box.querySelector('#log') as HTMLDivElement;
   const input = box.querySelector('#cmd') as HTMLInputElement;
   const chips = box.querySelector('#chips') as HTMLDivElement;
+  // "Add manoeuvre" arms the next order: if the ships cannot do it, the academy writes it. One shot.
+  // Saying "teach: …" does the same without the button.
+  let armed = false;
+  const arm = document.createElement('button');
+  arm.id = 'academy-toggle';
+  const paintArm = () => {
+    arm.textContent = armed ? '◆ describe the manoeuvre…' : '+ Add manoeuvre';
+    arm.classList.toggle('on', armed);
+    input.placeholder = armed ? 'describe the manoeuvre, e.g. "fighters, stay behind the Vigilant"' : 'type or dictate an order, then Enter';
+  };
+  arm.addEventListener('click', () => { armed = !armed; paintArm(); if (armed) input.focus(); });
+  paintArm();
+  chips.appendChild(arm);
   // Tappable example orders: a stranger (or a phone) can play without typing a word.
-  for (const text of ['all ships, weapons free', 'all ships, full ahead', 'fighters, stay behind the Vigilant', 'frigates, circle the Ravager while firing', 'Alpha 1, belay that', 'all ships report']) {
+  for (const text of ['all ships, weapons free and full ahead', 'fighters, stay behind the Vigilant', 'frigates, circle the Ravager while firing', 'Alpha 1, belay that', 'all ships report']) {
     const b = document.createElement('button');
     b.textContent = text;
     b.addEventListener('click', () => { submit(text); input.blur(); });
@@ -47,11 +60,14 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
     return d;
   };
 
-  const carryOut = (ships: Ship[], c: Command, t: Tier) => {
-    for (const s of ships) {
-      const r = execute(s, c);
-      line(r.ok ? t : 'refused', s, r.ok ? (t === 'hedge' ? r.msg.replace(/\.$/, '?') : r.msg) : r.reason);
-      if (r.ok) onOrder(s);
+  const carryOut = (ships: Ship[], orders: Order[], t: Tier) => {
+    for (const c of orders) {
+      if (c.op === 'report') { for (const s of ships) line('info', s, report(s)); continue; }
+      for (const s of ships) {
+        const r = execute(s, c);
+        line(r.ok ? t : 'refused', s, r.ok ? (t === 'hedge' ? r.msg.replace(/\.$/, '?') : r.msg) : r.reason);
+        if (r.ok) onOrder(s);
+      }
     }
   };
 
@@ -59,11 +75,15 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
     const top = (k: string, n = 2) => Object.entries(d.answers[k]?.probabilities ?? {}).sort((a, b) => b[1] - a[1]).slice(0, n)
       .map(([l, p]) => `${l} ${Math.round(p * 100)}%`).join(' / ');
     const fleet = Math.round(((d.answers.fleet as unknown as { noul: number })?.noul ?? 0) * 100);
-    return `ship ${top('ship')} · fleet ${fleet}% · intent ${top('intent')} · weakest ${d.weakest} ${Math.round(d.confidence * 100)}% · ${Math.round(d.latency)} ms · ${JSON.stringify(d.command)}`;
+    return `ship ${top('ship')}${d.ships.length > 1 ? ' +' + d.ships.slice(1).join(',') : ''} · fleet ${fleet}% · intent ${top('intent')} · weakest ${d.weakest} ${Math.round(d.confidence * 100)}% · ${Math.round(d.latency)} ms · ${JSON.stringify(d.command)}`;
   };
 
   const viaJev = async (text: string) => {
     onOrder(flagship()); // any order starts the match clock
+    let teach = armed;
+    const tm = text.match(/^\s*(teach|academy|learn)[:,]?\s+(.*)$/i);
+    if (tm) { teach = true; text = tm[2]; }
+    if (armed) { armed = false; paintArm(); }
     const pending = line('info', null, text);
     const { roster, resolve } = addressing();
     try {
@@ -72,11 +92,15 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
       const det = pending.querySelector('.detail') as HTMLSpanElement | null;
       if (det) det.textContent = detailOf(d);
       pending.dataset.detail = detailOf(d);
-      const ships = resolve(d.ship);
+      const seen = new Set<string>();
+      const ships = d.ships.flatMap(resolve).filter((s) => !seen.has(s.id) && seen.add(s.id));
       const speaker = ships[0] ?? flagship();
       // Understood but impossible is a different answer from not understood. Send it to the academy:
       // Opus writes the manoeuvre once, the ships run it, and from now on Jev routes to it directly.
       if (d.intent === 'unsupported') {
+        // The yes/no questions may have caught the real order ("move forward") even when the choice went astray.
+        if (ships.length && d.extras.length) { carryOut(ships, d.extras, 'sure'); if (!teach) return; }
+        if (!teach) { line('refused', speaker, "Understood, captain, but we don't know how to do that. Press Add manoeuvre, or say \"teach: …\"."); return; }
         line('refused', speaker, "Understood, captain, but we don't know how to do that yet.");
         const teaching = line('academy', null, `writing a manoeuvre for "${text}"…`);
         teaching.insertAdjacentHTML('beforeend', '<div class="progress"><div></div></div>');
@@ -88,7 +112,7 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
           onLearned(b.name);
           teaching.dataset.detail = b.code;
           if (debug) { const sp = document.createElement('span'); sp.className = 'detail'; sp.textContent = b.code; teaching.appendChild(sp); }
-          carryOut(ships.length ? ships : [flagship()], { op: 'behaviour', id: b.id, name: b.name }, 'sure');
+          carryOut(ships.length ? ships : [flagship()], [{ op: 'behaviour', id: b.id, name: b.name }], 'sure');
         } catch (e) {
           teaching.className = 'line refused';
           teaching.querySelector('.progress')?.remove();
@@ -100,8 +124,7 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
       const t = tier(d.confidence);
       if (t === 'refused') { line('refused', speaker, `Say again, captain? ${weakest(d)}`); return; }
       if (!ships.length) { line('refused', flagship(), `No ship called ${d.ship}.`); return; }
-      if (d.command.op === 'report') { for (const s of ships) line('info', s, report(s)); return; }
-      carryOut(ships, d.command, t);
+      carryOut(ships, [d.command, ...d.extras], t);
     } catch (e) { line('refused', null, String(e)); }
   };
 
@@ -118,7 +141,7 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
     if (text.startsWith('/')) {
       line('info', null, text);
       const c = parse(text.slice(1));
-      if ('error' in c) line('refused', null, c.error); else carryOut([flagship()], c, 'sure');
+      if ('error' in c) line('refused', null, c.error); else carryOut([flagship()], [c], 'sure');
       return;
     }
     void viaJev(text);
