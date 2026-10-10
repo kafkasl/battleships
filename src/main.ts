@@ -180,7 +180,7 @@ const flash = new Map<string, number>();
 const MATCH_SECONDS = 60;
 const match = { started: 0, over: false, kills: 0, losses: 0, outcome: '' };
 const ui = installConsole(sim, () => player, addressing,
-  (s) => { flash.set(s.id, performance.now()); if (!match.started) match.started = performance.now(); },
+  (s) => { flash.set(s.id, performance.now()); },
   (name) => { ui.line('info', null, `Manoeuvre "${name}" added to the fleet's repertoire.`); });
 for (const b of restore()) ui.line('info', null, `Remembered manoeuvre "${b.name}".`);
 
@@ -218,6 +218,10 @@ function endMatch(outcome: string) {
   (el.querySelector('#again') as HTMLButtonElement).onclick = () => location.reload();
   setTimeout(() => nameInput.focus(), 50);
 }
+
+const startBtn = document.getElementById('start')!;
+startBtn.addEventListener('click', () => { if (!match.started) { match.started = performance.now(); startBtn.remove(); } });
+addEventListener('keydown', (e) => { if (e.key === ' ' && document.activeElement?.tagName !== 'INPUT' && !match.started) { match.started = performance.now(); startBtn.remove(); } });
 
 const tray = document.getElementById('tray')!;
 function updateTray() {
@@ -397,8 +401,11 @@ function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
 
-  runBehaviours(sim, dt, (s, e) => { ui.line('refused', s, `I'm too dumb for that, captain. (${String(e)})`); });
-  sim.tick(dt);
+  // Nothing moves until the captain presses Start: time to teach manoeuvres and give opening orders.
+  if (match.started) {
+    runBehaviours(sim, dt, (s, e) => { ui.line('refused', s, `I'm too dumb for that, captain. (${String(e)})`); });
+    sim.tick(dt);
+  }
   for (const s of sim.ships.values()) syncVisual(s);
   for (const v of visuals.values()) { v.engines.forEach((e, i) => flickerEngine(e, t, v.seed + i)); blinkLights(v, t); }
   hovered = pick();
@@ -414,8 +421,6 @@ function tick() {
     `hull      ${Math.round(card.hull)} / ${card.maxHull}   ${card.weaponsFree ? 'weapons free' : 'holding fire'}\n` +
     `crew      ${Object.entries(card.stations).map(([k, v]) => `${k === 'sensoria' ? 'sensors' : k} ${v}`).join(' · ')}  (${card.crew} aboard)\n` +
     `contacts  ${card.contacts.length}`;
-  // The enemy capital ship patrols in a slow circle so there is always something to shoot at.
-  if (Math.floor(t / 20) !== Math.floor((t - dt) / 20)) foe.desiredHeading = (foe.desiredHeading + 60) % 360;
 
   for (const r of rocks) {
     const s = r.userData.spin as THREE.Vector3;
@@ -452,7 +457,7 @@ function tick() {
     const left = Math.max(0, MATCH_SECONDS - (performance.now() - match.started) / 1000);
     clockEl.textContent = `${Math.floor(left / 60)}:${Math.floor(left % 60).toString().padStart(2, '0')}`;
     if (left <= 0) endMatch('timeout');
-  } else if (!match.started) clockEl.textContent = 'give an order to begin';
+  } else if (!match.started) clockEl.textContent = '';
   beams.update(performance.now() / 1000);
 
   // Camera lock (L): the orbit target rides along with the pinned ship. Otherwise the camera is free.

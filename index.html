@@ -62,6 +62,10 @@
     #tray .man { display: flex; justify-content: space-between; } #tray .n { color: #8a7a70; }
     #clock { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); color: #e8d2c0; font: 18px "SF Mono", Menlo, monospace; letter-spacing: 0.25em; white-space: nowrap;
       text-shadow: 0 0 12px rgba(255, 180, 120, 0.5); pointer-events: none; }
+    #start { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); padding: 10px 22px; font: bold 15px "SF Mono", Menlo, monospace;
+      letter-spacing: 0.2em; text-transform: uppercase; color: #1a0a06; background: #ffd59a; border: none; cursor: pointer;
+      box-shadow: 0 0 24px rgba(255, 213, 154, 0.6); }
+    #start:hover { background: #ffe8c4; }
     .bar.man .name::before { content: '◆ '; color: #c28bff; }
     #results { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(10, 4, 6, 0.55); backdrop-filter: blur(8px); z-index: 10; }
     #results .panel { width: 560px; padding: 28px 32px; background: rgba(10, 4, 6, 0.8); border: 1px solid rgba(95, 200, 255, 0.4); color: #e8d2c0;
@@ -83,6 +87,7 @@
   <pre id="inputs"></pre>
   <div id="tray" style="display:none"></div>
   <div id="clock"></div>
+  <button id="start">▶ Start battle</button>
   <div id="bars"></div>
   <div id="results" style="display:none">
     <div class="panel">
@@ -93,7 +98,7 @@
     </div>
   </div>
   <div id="goal"><b>Goal: destroy the enemy! Mother must survive.</b></div>
-  <div id="hud">Enter: give an order · + Add manoeuvre: teach the fleet something new<br/>drag: orbit · right-drag or screen edge: pan · wheel: zoom · wasd: move · click ship: card · L: unlock / lock camera · G: grid · `: debug · H: hide this</div>
+  <div id="hud">Enter: give an order · + Add manoeuvre: teach the fleet something new · Start (or Space) when ready<br/>drag: orbit · right-drag or screen edge: pan · wheel: zoom · wasd: move · click ship: card · L: unlock / lock camera · G: grid · `: debug · H: hide this</div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>

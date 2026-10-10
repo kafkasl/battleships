@@ -184,6 +184,6 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
     }
   });
   addEventListener('keydown', (e) => { if (e.key === 'Escape') input.blur(); });
-  line('info', flagship(), 'Bridge ready, captain. Press Enter and give an order.');
+  line('info', flagship(), 'Bridge ready, captain. Give opening orders or teach a manoeuvre, then press Start.');
   return { line, submit };
 }
