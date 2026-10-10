@@ -129,8 +129,10 @@ const raiders = [1, 2, 3].map((n) => sim.add(makeSimShip({
   id: `drone${n}`, name: `Drone ${n}`, type: 'fighter', faction: 'enemy', color: '#ff8a7a', weaponsFree: true,
   pos: { x: 40 - (n - 2) * 50, y: 14, z: -360 }, heading: 180, desiredHeading: 180, desiredAltitude: 14 })));
 const hostiles = [foe, ...enemyFrigates, ...raiders];
-// Enemy doctrine: everyone advances at a steady half speed, guns free, straight down the arena.
-for (const h of hostiles) h.desiredSpeed = 0.6;
+// Enemy doctrine: the whole line advances as a block at the capital ship's cruising speed, guns free, straight down
+// the arena. Each class gets the throttle that matches that absolute speed.
+const blockSpeed = SHIP_TYPES.capital.speedMax * 0.6;
+for (const h of hostiles) h.desiredSpeed = Math.min(1, blockSpeed / SHIP_TYPES[h.type].speedMax);
 // The fleet you command. Names are chosen to be easy to say out loud.
 const red = sim.add(makeSimShip({ id: 'red', name: 'Red', type: 'frigate', faction: 'player', color: '#7fd3ff',
   pos: { x: -170, y: 6, z: 490 }, desiredAltitude: 6 }));
