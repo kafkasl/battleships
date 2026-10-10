@@ -63,7 +63,7 @@ for (const c of CASES) {
   const ops = [d.command, ...d.extras].filter(Boolean).map((o) => o!.op);
   const shipsOk = [...want].every((s) => got.has(s)) && [...got].every((s) => want.has(s));
   const opsOk = c.ops.every((o) => ops.includes(o)) && ops.every((o) => c.ops.includes(o));
-  const ok = shipsOk && opsOk && d.confidence >= 0.45;
+  const ok = shipsOk && opsOk && d.confidence >= 0.4;
   if (!ok) failed++;
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${c.text}\n      ships ${[...got].join(',') || '-'}  ops ${ops.join(',') || '-'}  conf ${Math.round(d.confidence * 100)}%  ${Math.round(d.latency)} ms`);
 }

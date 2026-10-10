@@ -12,7 +12,8 @@ export interface Addressing {
 }
 
 type Tier = 'sure' | 'hedge' | 'refused' | 'info' | 'academy' | 'learned';
-const tier = (conf: number): Tier => (conf >= 0.7 ? 'sure' : conf >= 0.45 ? 'hedge' : 'refused');
+// Orders are obeyed down to 40%: a hedged readback beats a refusal when the captain is only giving a few.
+const tier = (conf: number): Tier => (conf >= 0.6 ? 'sure' : conf >= 0.4 ? 'hedge' : 'refused');
 
 const learned = (): Learned => Object.fromEntries([...behaviours.values()].filter((b) => b.id !== 'engage').map((b) => [b.id, { description: b.description, name: b.name }]));
 
