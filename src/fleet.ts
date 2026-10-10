@@ -54,6 +54,9 @@ function wideEndZ(obj: THREE.Object3D): number {
   return (nf ? front / nf : 0) >= (nb ? back / nb : 0) ? 1 : -1;
 }
 
+/** Extra yaw per model so the nose points along -Z. */
+const ORIENT: Record<string, number> = { fighter_a: -Math.PI / 2 };
+
 export interface ShipVisual {
   root: THREE.Group;
   engines: THREE.Group[];
@@ -78,6 +81,8 @@ export async function makeShip(name: string, length: number, engineColor: THREE.
   if (size.x > size.z) model.rotation.y = Math.PI / 2;
   // Fighters are wider at the back (wings) than the nose: if the wide end sits at -Z, spin it round.
   if (wideEndZ(model) < 0) model.rotation.y += Math.PI;
+  // Models whose wingspan beats their length fool the heuristics above; fixed by eye.
+  model.rotation.y += ORIENT[name] ?? 0;
   const box2 = new THREE.Box3().setFromObject(model);
   const centre = box2.getCenter(new THREE.Vector3());
   model.position.sub(centre);

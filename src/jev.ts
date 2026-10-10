@@ -119,13 +119,15 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   // `confidence` field is more conservative and hedged on orders as plain as "full ahead".
   const prob = (x: JevAnswer) => x.probabilities[x.choice] ?? x.confidence;
   const fleet = (answers.fleet as unknown as { noul: number }).noul;
-  let ship: JevAnswer = fleet >= 0.85 ? { choice: 'all', confidence: fleet, probabilities: { all: fleet } } : a('ship');
+  const addrYes = (k: string) => (answers['addr_' + k] as unknown as { noul: number } | undefined)?.noul ?? 0;
+  // Fleet-wide when the fleet question is sure, or fairly sure and most ships are individually addressed too
+  // ("all battleships" scores 0.6 on its own but lights up every ship).
+  const widely = Object.keys(roster).filter((k) => k !== 'enemy' && addrYes(k) >= 0.6).length >= 3;
+  const isFleet = fleet >= 0.85 || (fleet >= 0.5 && widely);
+  let ship: JevAnswer = isFleet ? { choice: 'all', confidence: Math.max(fleet, 0.85), probabilities: { all: Math.max(fleet, 0.85) } } : a('ship');
   const also: string[] = [];
   if (ship.choice !== 'all') {
-    for (const k of Object.keys(roster)) {
-      const yes = (answers['addr_' + k] as unknown as { noul: number } | undefined)?.noul ?? 0;
-      if (k !== ship.choice && yes >= 0.6) also.push(k);
-    }
+    for (const k of Object.keys(roster)) if (k !== ship.choice && addrYes(k) >= 0.6) also.push(k);
     // With several addressees the single choice is split between them by design; judge it by the strongest yes.
     if (also.length) {
       const best = Math.max(prob(ship), ...also.map((k) => (answers['addr_' + k] as unknown as { noul: number }).noul));
@@ -156,7 +158,7 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   for (const k of Object.keys(WANTS)) {
     if (k === intent.choice) continue;
     const yes = (answers['wants_' + k] as unknown as { noul: number } | undefined)?.noul ?? 0;
-    if (yes < 0.6) continue;
+    if (yes < 0.7) continue;
     const c = build(k);
     if (!c) continue;
     // A ship runs one manoeuvre at a time, and a manoeuvre already covers movement: a second manoeuvre
