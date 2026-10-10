@@ -179,7 +179,7 @@ function addressing() {
 const flash = new Map<string, number>();
 // ---- Match: one run until Ravager or Vigilant dies, or the clock runs out. --------------------
 
-const MATCH_SECONDS = 60;
+const MATCH_SECONDS = 90;
 const match = { started: 0, over: false, kills: 0, losses: 0, outcome: '' };
 const ui = installConsole(sim, () => player, addressing,
   (s) => { flash.set(s.id, performance.now()); },
@@ -198,7 +198,7 @@ function endMatch(outcome: string) {
   const seconds = Math.round((performance.now() - match.started) / 1000);
   const el = document.getElementById('results')!;
   el.style.display = '';
-  (el.querySelector('h1') as HTMLElement).textContent = outcome === 'victory' ? 'Dragon destroyed' : outcome === 'defeat' ? 'Mother lost' : 'Time is up: the Dragon got away';
+  (el.querySelector('h1') as HTMLElement).textContent = outcome === 'victory' ? 'Enemy fleet destroyed' : outcome === 'defeat' ? 'Fleet lost' : 'Time is up: the enemy got away';
   (el.querySelector('.stats') as HTMLElement).textContent = `${seconds}s · ${match.kills} enemy ships destroyed · ${match.losses} ships lost`;
   const nameInput = el.querySelector('input') as HTMLInputElement;
   const renderBoard = (runs: Run[], mine?: Run) => {
@@ -452,8 +452,9 @@ function tick() {
       explosions.spawn(new THREE.Vector3(ev.pos.x, ev.pos.y, ev.pos.z), ev.length);
       if (pinned.id === ev.id) pinned = player;
       if (hostiles.some((h) => h.id === ev.id)) match.kills++; else match.losses++;
-      if (ev.id === foe.id) endMatch('victory');
-      if (ev.id === player.id) endMatch('defeat');
+      // Full destruction: a side loses when its last ship dies.
+      if (!hostiles.some((h) => sim.ships.has(h.id))) endMatch('victory');
+      else if (!fleet.some((f) => sim.ships.has(f.id))) endMatch('defeat');
     }
   }
   sim.events.length = 0;

@@ -159,7 +159,8 @@ multiple player capital ships, 3D rule triggers (above / below).
 
 Three runs, one sentence each. Open the stage laptop at `http://localhost:5173/?stage` so no manoeuvre is remembered.
 Ship names: Mother (capital), Red and Blue (frigates), Eagle 1-3 (fighters). The enemy mirrors it: Dragon, Fang, Claw, Drone 1-3,
-all advancing at a steady half speed with guns free. 60-second clock; a timeout is a defeat.
+all advancing as a block at the capital ship's cruising speed, guns free. Full destruction: a side loses when its last
+ship dies. 90-second clock; a timeout is a defeat.
 
 1. **Run 1.** Say: `All ships, full ahead and shoot the enemy.`
    Every ship answers "Weapons free." then "Full ahead." Both fleets charge and pass through each other; ours sail on with
