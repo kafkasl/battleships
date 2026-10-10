@@ -26,6 +26,8 @@ export const SHIP_TYPES: Record<string, ShipType> = {
 
 /** Guns cover everything except a cone astern this wide (degrees). Forward and side batteries only. */
 export const BLIND_CONE = 90;
+/** Radius of the battle arena; ships beyond it are turned back. */
+export const ARENA = 950;
 
 export type SimEvent =
   | { type: 'shot'; from: string; to: string; damage: number }
@@ -70,6 +72,7 @@ export interface Ship {
   rules: Rule[];
   contacts: Contact[];
   behaviour?: string;       // id of the behaviour this ship is running, if any
+  returning?: boolean;      // being steered back inside the arena
   memory?: Record<string, unknown>;
   color: string;            // the ship's colour in the log and on its grid marker
   lastOrder: string;        // crew-voice readback of the last order it carried out
@@ -124,6 +127,10 @@ export class Sim {
       // altitude
       const dy = s.desiredAltitude - s.pos.y;
       s.pos.y += Math.sign(dy) * Math.min(Math.abs(dy), t.climbRate * dt);
+      // Soft boundary: past the arena edge the ship is steered home until it is well inside again.
+      const r = Math.hypot(s.pos.x, s.pos.z);
+      if (r > ARENA) s.returning = true; else if (r < ARENA * 0.8) s.returning = false;
+      if (s.returning) s.desiredHeading = bearing(s.pos, { x: 0, y: 0, z: 0 });
       // advance
       const d = headingDir(s.heading);
       const v = s.speed * t.speedMax * dt;

@@ -11,25 +11,33 @@ export interface Addressing {
   resolve: (label: string) => Ship[];               // label -> ships to order
 }
 
-type Tier = 'sure' | 'hedge' | 'refused' | 'info';
+type Tier = 'sure' | 'hedge' | 'refused' | 'info' | 'academy' | 'learned';
 const tier = (conf: number): Tier => (conf >= 0.7 ? 'sure' : conf >= 0.45 ? 'hedge' : 'refused');
 
 const learned = (): Learned => Object.fromEntries([...behaviours.values()].map((b) => [b.id, { description: b.description, name: b.name }]));
 
 export function installConsole(sim: Sim, flagship: () => Ship, addressing: () => Addressing,
-                               onOrder: (ship: Ship) => void) {
+                               onOrder: (ship: Ship) => void, onLearned: (name: string) => void = () => {}) {
   const box = document.createElement('div');
   box.id = 'console';
-  box.innerHTML = `<div id="log"></div><input id="cmd" placeholder="full ahead · Alpha 2 hard to port · fighters climb 40 · Kestrel, man the sensors · all ships report" autocomplete="off" />`;
+  box.innerHTML = `<div id="log"></div><div id="chips"></div><input id="cmd" placeholder="type or dictate an order, then Enter" autocomplete="off" />`;
   document.body.appendChild(box);
   const log = box.querySelector('#log') as HTMLDivElement;
   const input = box.querySelector('#cmd') as HTMLInputElement;
+  const chips = box.querySelector('#chips') as HTMLDivElement;
+  // Tappable example orders: a stranger (or a phone) can play without typing a word.
+  for (const text of ['all ships, weapons free', 'all ships, full ahead', 'fighters, stay behind the Vigilant', 'frigates, circle the Ravager while firing', 'Alpha 1, belay that', 'all ships report']) {
+    const b = document.createElement('button');
+    b.textContent = text;
+    b.addEventListener('click', () => { submit(text); input.blur(); });
+    chips.appendChild(b);
+  }
   let debug = false;
 
   const line = (t: Tier, ship: Ship | null, text: string, detail = '') => {
     const d = document.createElement('div');
     d.className = `line ${t}`;
-    const badge = ship ? `<span class="badge" style="color:${ship.color};border-color:${ship.color}">${ship.name}</span>` : '<span class="badge you">You</span>';
+    const badge = ship ? `<span class="badge" style="color:${ship.color};border-color:${ship.color}">${ship.name}</span>` : t === 'academy' || t === 'learned' ? '<span class="badge academy">Academy</span>' : '<span class="badge you">You</span>';
     d.innerHTML = `${badge}<span class="text"></span>${detail ? '<span class="detail"></span>' : ''}`;
     (d.querySelector('.text') as HTMLSpanElement).textContent = text;
     if (detail) (d.querySelector('.detail') as HTMLSpanElement).textContent = detail;
@@ -55,6 +63,7 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
   };
 
   const viaJev = async (text: string) => {
+    onOrder(flagship()); // any order starts the match clock
     const pending = line('info', null, text);
     const { roster, resolve } = addressing();
     try {
@@ -69,17 +78,21 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
       // Opus writes the manoeuvre once, the ships run it, and from now on Jev routes to it directly.
       if (d.intent === 'unsupported') {
         line('refused', speaker, "Understood, captain, but we don't know how to do that yet.");
-        const teaching = line('info', null, 'Academy: working on it…');
+        const teaching = line('academy', null, `writing a manoeuvre for "${text}"…`);
+        teaching.insertAdjacentHTML('beforeend', '<div class="progress"><div></div></div>');
         try {
           const b = await learn(text, [...behaviours.keys()]);
-          teaching.className = 'line sure';
-          (teaching.querySelector('.text') as HTMLSpanElement).textContent = `Academy: new manoeuvre "${b.name}" learned. ${b.description}`;
+          teaching.className = 'line learned';
+          teaching.querySelector('.progress')?.remove();
+          (teaching.querySelector('.text') as HTMLSpanElement).textContent = `new manoeuvre "${b.name}" ready. Ask for it any time.`;
+          onLearned(b.name);
           teaching.dataset.detail = b.code;
           if (debug) { const sp = document.createElement('span'); sp.className = 'detail'; sp.textContent = b.code; teaching.appendChild(sp); }
           carryOut(ships.length ? ships : [flagship()], { op: 'behaviour', id: b.id, name: b.name }, 'sure');
         } catch (e) {
           teaching.className = 'line refused';
-          (teaching.querySelector('.text') as HTMLSpanElement).textContent = `Academy: ${String(e)}`;
+          teaching.querySelector('.progress')?.remove();
+          (teaching.querySelector('.text') as HTMLSpanElement).textContent = `${String(e)}`;
         }
         return;
       }
@@ -128,5 +141,5 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
   });
   addEventListener('keydown', (e) => { if (e.key === 'Escape') input.blur(); });
   line('info', flagship(), 'Bridge ready, captain. Press Enter and give an order.');
-  return { line };
+  return { line, submit };
 }

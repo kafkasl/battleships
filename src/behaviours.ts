@@ -2,13 +2,17 @@
 // later utterances to them. The API below is the whole world a behaviour can see or touch.
 import { type Ship, type Sim, SHIP_TYPES, SPEED_LEVELS, bearing, dist, relBearing, canFireAt, wrapDeg } from './sim';
 
-export interface EnemyView { id: string; name: string; dist: number; bearing: number; relBearing: number; hull: number; inArc: boolean; }
+export interface ShipView { id: string; name: string; type: string; x: number; z: number; altitude: number; heading: number; dist: number; bearing: number; relBearing: number; hull: number; inArc: boolean; }
 
 export interface BehaviourAPI {
   dt: number;
-  me: { name: string; heading: number; speed: number; altitude: number; hull: number; weaponRange: number; turnRate: number };
-  enemies: EnemyView[];          // sorted nearest first
-  nearest: EnemyView | null;
+  me: { name: string; type: string; x: number; z: number; heading: number; speed: number; altitude: number; hull: number; weaponRange: number; turnRate: number; speedMax: number };
+  enemies: ShipView[];           // sorted nearest first
+  nearest: ShipView | null;
+  friends: ShipView[];           // my side, sorted nearest first, not including me
+  flagship: ShipView | null;     // my side's capital ship, if alive
+  bearingTo(x: number, z: number): number;   // compass bearing from me to a point
+  distTo(x: number, z: number): number;
   setSpeed(level: 'stop' | 'slow' | 'half' | 'full'): void;
   setHeading(deg: number): void; // absolute compass heading, 0..360, the ship turns toward it at its turn rate
   turn(dir: 'left' | 'right', degrees: number): void;
@@ -23,12 +27,18 @@ You write a behaviour for a warship in a space battle. A behaviour is the body o
 that runs every simulation tick (about 20 times per second) with one argument, \`api\`:
 
   api.dt                      seconds since the last tick
-  api.me                      { name, heading, speed, altitude, hull, weaponRange, turnRate }
-                              heading is a compass bearing in degrees, 0 = north, 90 = east, clockwise
-  api.enemies                 array sorted nearest first, each { id, name, dist, bearing, relBearing, hull, inArc }
+  api.me                      { name, type, x, z, heading, speed, altitude, hull, weaponRange, turnRate, speedMax }
+                              x, z: position on the battle plane. heading: compass degrees, 0 = north (-z), 90 = east (+x), clockwise.
+                              A point at distance d along compass bearing b is (x + d*sin(b°), z - d*cos(b°)).
+                              type is 'capital', 'frigate' or 'fighter'. speed is 0..1 of speedMax.
+  api.enemies                 hostile ships sorted nearest first, each { id, name, type, x, z, altitude, heading, dist, bearing, relBearing, hull, inArc }
                               bearing: compass bearing from me to it. relBearing: -180..180, positive = to my right (starboard)
                               inArc: true if my guns can reach it now (inside weaponRange and not in the 90° cone behind me)
   api.nearest                 the first enemy or null
+  api.friends                 ships on my side (not me), same shape as enemies, sorted nearest first
+  api.flagship                my side's capital ship or null
+  api.bearingTo(x, z)         compass bearing from me to a point
+  api.distTo(x, z)            distance from me to a point
   api.setSpeed('stop'|'slow'|'half'|'full')
   api.setHeading(deg)         desired compass heading; the ship turns toward it at its turnRate (deg/s)
   api.turn('left'|'right', degrees)   relative to the current desired heading
@@ -77,18 +87,25 @@ export function runBehaviours(sim: Sim, dt: number, onFail: BehaviourFailure) {
 
 function apiFor(sim: Sim, s: Ship, dt: number): BehaviourAPI {
   const t = SHIP_TYPES[s.type];
-  const enemies: EnemyView[] = [];
+  const enemies: ShipView[] = [], friends: ShipView[] = [];
   for (const o of sim.ships.values()) {
-    if (o.faction === s.faction || o.faction === 'neutral') continue;
-    enemies.push({ id: o.id, name: o.name, dist: dist(s.pos, o.pos), bearing: bearing(s.pos, o.pos), relBearing: relBearing(s, o.pos), hull: o.hull, inArc: canFireAt(s, o.pos) });
+    if (o === s || o.faction === 'neutral') continue;
+    const view: ShipView = { id: o.id, name: o.name, type: o.type, x: o.pos.x, z: o.pos.z, altitude: o.pos.y, heading: o.heading,
+      dist: dist(s.pos, o.pos), bearing: bearing(s.pos, o.pos), relBearing: relBearing(s, o.pos), hull: o.hull, inArc: canFireAt(s, o.pos) };
+    (o.faction === s.faction ? friends : enemies).push(view);
   }
   enemies.sort((a, b) => a.dist - b.dist);
+  friends.sort((a, b) => a.dist - b.dist);
   s.memory ??= {};
   return {
     dt,
-    me: { name: s.name, heading: s.heading, speed: s.speed, altitude: s.pos.y, hull: s.hull, weaponRange: t.weaponRange, turnRate: t.turnRate },
+    me: { name: s.name, type: s.type, x: s.pos.x, z: s.pos.z, heading: s.heading, speed: s.speed, altitude: s.pos.y, hull: s.hull, weaponRange: t.weaponRange, turnRate: t.turnRate, speedMax: t.speedMax },
     enemies,
     nearest: enemies[0] ?? null,
+    friends,
+    flagship: friends.find((f) => f.type === 'capital') ?? null,
+    bearingTo: (x, z) => bearing(s.pos, { x, y: 0, z }),
+    distTo: (x, z) => Math.hypot(x - s.pos.x, z - s.pos.z),
     setSpeed: (level) => { s.desiredSpeed = SPEED_LEVELS[level] ?? s.desiredSpeed; },
     setHeading: (deg) => { if (Number.isFinite(deg)) s.desiredHeading = wrapDeg(deg); },
     turn: (dir, degrees) => { if (Number.isFinite(degrees)) s.desiredHeading = wrapDeg(s.desiredHeading + (dir === 'left' ? -degrees : degrees)); },

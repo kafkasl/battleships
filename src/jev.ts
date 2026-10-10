@@ -12,12 +12,12 @@ export const INTENTS = {
   setSpeed: 'change how fast the ship moves: full ahead, all ahead, half speed, slow, all stop, stop engines',
   turn: 'rotate the ship: turn left / right / port / starboard, come about, hard to port',
   climb: 'change altitude: climb, go up, dive, descend, go down, rise',
-  fire: 'start shooting: open fire, weapons free, engage, fire at will, attack',
+  fire: 'start shooting and nothing else: open fire, weapons free, engage, fire at will',
   holdFire: 'stop shooting: hold fire, cease fire, stand down, weapons hold',
   stopBehaviour: 'cancel the current manoeuvre: belay that, stop that, as you were, break off',
   assignCrew: 'move crew to a station: man the engines, put two on sensors, crew the weapons',
   report: 'ask for a status report: report, status, sitrep, what are you doing, where are you',
-  unsupported: 'a real order, but one the ship has no way to carry out: formations, get in front of, follow, escort, intercept, dock, retreat to, repair, go to a place, anything not in the list above',
+  unsupported: 'a real order, but one the ship has no way to carry out: formations, get in front of, follow, escort, intercept, dock, retreat to, repair, go to a place, circle, orbit, flank, wheel around something, anything not in the list above',
   none: 'not an order at all: small talk, a comment, a question about the scenery, noise, unclear words',
 };
 

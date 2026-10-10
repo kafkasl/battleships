@@ -9,7 +9,7 @@ import { makeShip, makeRock, type ShipVisual } from './fleet';
 import { makeCapital, blinkLights } from './capital';
 import { Sim, makeShip as makeSimShip, type Ship, SHIP_TYPES, BLIND_CONE } from './sim';
 import { installConsole } from './console';
-import { runBehaviours } from './behaviours';
+import { runBehaviours, behaviours } from './behaviours';
 import { restore } from './academy';
 import { BeamSystem, ExplosionSystem, flickerEngine, makeDust, makeGrid } from './fx';
 
@@ -28,7 +28,7 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(NEBULA_FOG, 0.00075);
 
 const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.5, 20000);
-camera.position.set(-150, 55, 170);
+camera.position.set(-180, 90, 820);
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
@@ -38,6 +38,8 @@ controls.zoomSpeed = 0.8;
 controls.minDistance = 15;
 controls.maxDistance = 1800;
 controls.screenSpacePanning = true;
+controls.target.set(0, 0, 520);
+let followCam = false;
 
 // ---- Lights --------------------------------------------------------------
 
@@ -67,7 +69,19 @@ scene.add(makeDust(2500, 900));
 const grid = makeGrid();
 grid.visible = true;
 scene.add(grid);
-addEventListener('keydown', (e) => { if (e.key.toLowerCase() === 'g') grid.visible = !grid.visible; });
+let panX = 0, panZ = 0;
+const panKeys: Record<string, [number, number]> = { w: [0, 1], arrowup: [0, 1], s: [0, -1], arrowdown: [0, -1], a: [-1, 0], arrowleft: [-1, 0], d: [1, 0], arrowright: [1, 0] };
+const held = new Set<string>();
+const recomputePan = () => { panX = 0; panZ = 0; for (const k of held) { const v = panKeys[k]; if (v) { panX += v[0]; panZ += v[1]; } } };
+addEventListener('keydown', (e) => {
+  if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  if (k === 'g') grid.visible = !grid.visible;
+  if (k === 'l') followCam = !followCam;
+  if (k in panKeys && k !== 'd') { held.add(k); recomputePan(); e.preventDefault(); }
+  if (k === 'd' && e.shiftKey) { held.add('d'); recomputePan(); }
+});
+addEventListener('keyup', (e) => { held.delete(e.key.toLowerCase()); recomputePan(); });
 
 // ---- Post-processing -----------------------------------------------------
 
@@ -92,24 +106,24 @@ const explosions = new ExplosionSystem(scene);
 // ---- Simulation ----------------------------------------------------------
 
 const sim = new Sim();
-const player = sim.add(makeSimShip({ id: 'vigilant', name: 'Vigilant', type: 'capital', faction: 'player', heading: 20, desiredHeading: 20 }));
+const player = sim.add(makeSimShip({ id: 'vigilant', name: 'Vigilant', type: 'capital', faction: 'player', pos: { x: 0, y: 0, z: 560 } }));
 const foe = sim.add(makeSimShip({ id: 'ravager', name: 'Ravager', type: 'capital', faction: 'enemy', color: '#ff6a5a',
-  pos: { x: 260, y: 10, z: -520 }, heading: 180, desiredHeading: 180, desiredAltitude: 10, weaponsFree: true, hull: 320 }));
+  pos: { x: 0, y: 10, z: -560 }, heading: 180, desiredHeading: 180, desiredAltitude: 10, weaponsFree: true, hull: 320 }));
 const raiders = [1, 2, 3, 4].map((n) => sim.add(makeSimShip({
   id: `raider${n}`, name: `Raider ${n}`, type: 'fighter', faction: 'enemy', color: '#ff8a7a', weaponsFree: true, hull: 20,
-  pos: { x: 260 + (n - 2.5) * 70, y: 10 + (n % 2) * 14, z: -420 }, heading: 180, desiredHeading: 180, desiredAltitude: 10 + (n % 2) * 14,
+  pos: { x: (n - 2.5) * 70, y: 10 + (n % 2) * 14, z: -460 }, heading: 180, desiredHeading: 180, desiredAltitude: 10 + (n % 2) * 14,
 })));
 const hostiles = [foe, ...raiders];
 // The fleet you command. Names are chosen to be easy to say out loud.
 const kestrel = sim.add(makeSimShip({ id: 'kestrel', name: 'Kestrel', type: 'frigate', faction: 'player', color: '#7fd3ff',
-  pos: { x: -120, y: 6, z: 40 }, heading: 20, desiredHeading: 20, desiredAltitude: 6 }));
+  pos: { x: -120, y: 6, z: 600 }, desiredAltitude: 6 }));
 const heron = sim.add(makeSimShip({ id: 'heron', name: 'Heron', type: 'frigate', faction: 'player', color: '#9fffd0',
-  pos: { x: 120, y: 6, z: 40 }, heading: 20, desiredHeading: 20, desiredAltitude: 6 }));
+  pos: { x: 120, y: 6, z: 600 }, desiredAltitude: 6 }));
 const frigates = [kestrel, heron];
 const alphaColors = ['#c9b3ff', '#ffb3d9', '#ffe29a'];
 const alphas = [1, 2, 3].map((n) => sim.add(makeSimShip({
   id: `alpha${n}`, name: `Alpha ${n}`, type: 'fighter', faction: 'player', color: alphaColors[n - 1],
-  pos: { x: (n - 2) * 50, y: 14, z: 110 }, heading: 20, desiredHeading: 20, desiredAltitude: 14,
+  pos: { x: (n - 2) * 50, y: 14, z: 470 }, desiredAltitude: 14,
 })));
 player.color = '#ffd59a';
 foe.color = '#ff6a5a';
@@ -144,8 +158,58 @@ function addressing() {
 
 // Ships flash their grid marker when they take an order.
 const flash = new Map<string, number>();
-const ui = installConsole(sim, () => player, addressing, (s) => flash.set(s.id, performance.now()));
+// ---- Match: one run until Ravager or Vigilant dies, or the clock runs out. --------------------
+
+const MATCH_SECONDS = 180;
+const match = { started: 0, over: false, kills: 0, losses: 0, outcome: '' };
+const ui = installConsole(sim, () => player, addressing,
+  (s) => { flash.set(s.id, performance.now()); if (!match.started) match.started = performance.now(); },
+  (name) => { ui.line('info', null, `Manoeuvre "${name}" added to the fleet's repertoire.`); });
 for (const b of restore()) ui.line('info', null, `Remembered manoeuvre "${b.name}".`);
+
+interface Run { name: string; outcome: string; kills: number; losses: number; seconds: number; }
+const loadRuns = (): Run[] => { try { return JSON.parse(localStorage.getItem('runs') ?? '[]'); } catch { return []; } };
+const score = (r: Run) => r.kills * 1000 - r.losses * 300 - r.seconds + (r.outcome === 'victory' ? 5000 : 0);
+
+function endMatch(outcome: string) {
+  if (match.over) return;
+  match.over = true; match.outcome = outcome;
+  const seconds = Math.round((performance.now() - match.started) / 1000);
+  const el = document.getElementById('results')!;
+  el.style.display = '';
+  (el.querySelector('h1') as HTMLElement).textContent = outcome === 'victory' ? 'Ravager destroyed' : outcome === 'defeat' ? 'Vigilant lost' : 'Time is up';
+  (el.querySelector('.stats') as HTMLElement).textContent = `${seconds}s · ${match.kills} enemy ships destroyed · ${match.losses} ships lost`;
+  const nameInput = el.querySelector('input') as HTMLInputElement;
+  const renderBoard = (runs: Run[], mine?: Run) => {
+    const sorted = [...runs].sort((a, b) => score(b) - score(a));
+    (el.querySelector('.board') as HTMLElement).innerHTML = sorted.slice(0, 8).map((r, i) =>
+      `<div class="row${r === mine ? ' mine' : ''}"><span>${i + 1}</span><span>${r.name}</span><span>${r.outcome}</span><span>${r.kills} kills</span><span>${r.losses} lost</span><span>${r.seconds}s</span></div>`).join('');
+  };
+  renderBoard(loadRuns());
+  const save = () => {
+    const runs = loadRuns();
+    const mine: Run = { name: (nameInput.value.trim() || 'Captain').slice(0, 16), outcome, kills: match.kills, losses: match.losses, seconds };
+    runs.push(mine);
+    try { localStorage.setItem('runs', JSON.stringify(runs)); } catch { /* ignore */ }
+    renderBoard(runs, mine);
+    nameInput.disabled = true;
+    (el.querySelector('#save') as HTMLButtonElement).disabled = true;
+  };
+  (el.querySelector('#save') as HTMLButtonElement).onclick = save;
+  nameInput.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') save(); };
+  (el.querySelector('#again') as HTMLButtonElement).onclick = () => location.reload();
+  setTimeout(() => nameInput.focus(), 50);
+}
+
+const tray = document.getElementById('tray')!;
+function updateTray() {
+  if (!behaviours.size) { tray.style.display = 'none'; return; }
+  tray.style.display = '';
+  tray.innerHTML = '<b>Manoeuvres</b>' + [...behaviours.values()].map((b) => {
+    const n = [...sim.ships.values()].filter((s) => s.behaviour === b.id && s.faction === 'player').length;
+    return `<div class="man"><span class="name">${b.name}</span><span class="n">${n ? n + ' ship' + (n > 1 ? 's' : '') : 'idle'}</span></div>`;
+  }).join('');
+}
 
 // Ship card: hover previews a ship, click pins it. Defaults to the flagship.
 let pinned: Ship = player;
@@ -185,6 +249,7 @@ function updateHullBars() {
     el.style.top = `${((1 - proj.y) / 2) * innerHeight}px`;
     (el.querySelector('.fill') as HTMLDivElement).style.width = `${Math.max(0, (s.hull / s.maxHull) * 100)}%`;
     el.classList.toggle('hot', s.weaponsFree);
+    el.classList.toggle('man', !!s.behaviour);
   }
 }
 
@@ -345,6 +410,9 @@ function tick() {
       if (d) { scene.remove(d); dropLines.delete(ev.id); }
       explosions.spawn(new THREE.Vector3(ev.pos.x, ev.pos.y, ev.pos.z), ev.length);
       if (pinned.id === ev.id) pinned = player;
+      if (hostiles.some((h) => h.id === ev.id)) match.kills++; else match.losses++;
+      if (ev.id === foe.id) endMatch('victory');
+      if (ev.id === player.id) endMatch('defeat');
     }
   }
   sim.events.length = 0;
@@ -357,11 +425,28 @@ function tick() {
     if (near) h.desiredHeading = (Math.atan2(near.pos.x - h.pos.x, -(near.pos.z - h.pos.z)) * 180) / Math.PI;
   }
   updateHullBars();
+  updateTray();
+  const clockEl = document.getElementById('clock')!;
+  if (match.started && !match.over) {
+    const left = Math.max(0, MATCH_SECONDS - (performance.now() - match.started) / 1000);
+    clockEl.textContent = `${Math.floor(left / 60)}:${Math.floor(left % 60).toString().padStart(2, '0')}`;
+    if (left <= 0) endMatch('timeout');
+  } else if (!match.started) clockEl.textContent = 'give an order to begin';
   beams.update(performance.now() / 1000);
 
-  // Camera stays glued to the flagship: move the orbit target (and the camera with it) by its motion.
-  tmp.set(player.pos.x, player.pos.y, player.pos.z).sub(controls.target);
-  controls.target.add(tmp); camera.position.add(tmp);
+  // Camera lock (L): the orbit target rides along with the pinned ship. Otherwise the camera is free.
+  if (followCam && sim.ships.has(pinned.id)) {
+    tmp.set(pinned.pos.x, pinned.pos.y, pinned.pos.z).sub(controls.target);
+    controls.target.add(tmp); camera.position.add(tmp);
+  }
+  // WASD / arrows pan across the battle plane, relative to the view.
+  if (panX || panZ) {
+    const speed = controls.getDistance() * 0.8 * dt;
+    const fwd = new THREE.Vector3().subVectors(controls.target, camera.position).setY(0).normalize();
+    const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0));
+    tmp.copy(fwd).multiplyScalar(panZ * speed).addScaledVector(right, panX * speed);
+    controls.target.add(tmp); camera.position.add(tmp);
+  }
   controls.update();
   (grid.material as THREE.ShaderMaterial).uniforms.uCenter.value.copy(controls.target);
   composer.render(dt);
