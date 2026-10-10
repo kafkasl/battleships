@@ -100,10 +100,7 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     ship: choice('Which ship or group is the order addressed to?', roster),
     // Fleet-wide addressing is its own yes/no question. Inside the ship choice, an "all ships" option
     // soaked up every "all ahead" and "all stop".
-    fleet: { type: 'noul', instructions: 'Does the captain address every ship in the fleet at once?', criteria: {
-      true: 'the order contains an explicit fleet-wide address: "all ships", "all battleships", "all units", "all vessels", "everyone", "everybody", "whole fleet", "fleet,"',
-      false: 'the order names one ship or one class (Mother, Red, Blue, frigates, fighters, Eagle 2), or names nobody. Words like "all ahead" and "all stop" are speed settings, not addresses',
-    } },
+    fleet: { type: 'noul', instructions: 'Does the order explicitly address the whole fleet, every ship at once? Yes examples: "all ships full ahead", "all battleships move forward", "everyone engage", "fleet, turn left", "all units weapons free". No examples: "full ahead", "all ahead", "all stop", "turn left 30", "climb 50", "open fire", "Mother full ahead", "frigates stop", "Eagle 2 turn right".' },
   };
   const r = await fetch('/jev', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -120,14 +117,15 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   const prob = (x: JevAnswer) => x.probabilities[x.choice] ?? x.confidence;
   const fleet = (answers.fleet as unknown as { noul: number }).noul;
   const addrYes = (k: string) => (answers['addr_' + k] as unknown as { noul: number } | undefined)?.noul ?? 0;
-  // Fleet-wide when the fleet question is sure, or fairly sure and most ships are individually addressed too
-  // ("all battleships" scores 0.6 on its own but lights up every ship).
-  const widely = Object.keys(roster).filter((k) => k !== 'enemy' && addrYes(k) >= 0.6).length >= 3;
-  const isFleet = fleet >= 0.85 || (fleet >= 0.5 && widely);
+  // The fleet question carries worked examples; with them every fleet-wide phrasing tested scores 0.84+
+  // and every other order 0.45 or less.
+  const isFleet = fleet >= 0.65;
   let ship: JevAnswer = isFleet ? { choice: 'all', confidence: Math.max(fleet, 0.85), probabilities: { all: Math.max(fleet, 0.85) } } : a('ship');
   const also: string[] = [];
   if (ship.choice !== 'all') {
-    for (const k of Object.keys(roster)) if (k !== ship.choice && addrYes(k) >= 0.6) also.push(k);
+    // Per-ship answers are noisy on orders that name nobody (the flagship default), so demand more there.
+    const bar = ship.choice === 'flagship' ? 0.85 : 0.6;
+    for (const k of Object.keys(roster)) if (k !== ship.choice && addrYes(k) >= bar) also.push(k);
     // With several addressees the single choice is split between them by design; judge it by the strongest yes.
     if (also.length) {
       const best = Math.max(prob(ship), ...also.map((k) => (answers['addr_' + k] as unknown as { noul: number }).noul));
@@ -164,6 +162,8 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     // A ship runs one manoeuvre at a time, and a manoeuvre already covers movement: a second manoeuvre
     // would replace it and a plain "full ahead" in the same breath would cancel it.
     if (command?.op === 'behaviour' && (c.op === 'behaviour' || c.op === 'setSpeed' || c.op === 'turn' || c.op === 'climb' || c.op === 'setHeading')) continue;
+    // "Open fire" is not "engage": a fire order must not start the ship moving.
+    if (command?.op === 'fire' && c.op === 'behaviour' && c.id === 'engage') continue;
     extras.push(c);
   }
   const confidence = Math.min(...used.map(prob));
