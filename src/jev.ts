@@ -15,7 +15,8 @@ export const INTENTS = {
   fire: 'shoot weapons, open fire, engage target',
   assignCrew: 'move crew to a station: man the engines, put two on sensors, crew the weapons',
   report: 'ask for a status report: report, status, sitrep, what are you doing, where are you',
-  none: 'none of the above, small talk, unclear, or not an order',
+  unsupported: 'a real order, but one the ship has no way to carry out: formations, get in front of, follow, escort, intercept, dock, retreat to, repair, go to a place, anything not in the list above',
+  none: 'not an order at all: small talk, a comment, a question about the scenery, noise, unclear words',
 };
 
 const QUESTIONS = {
@@ -108,6 +109,7 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     .sort((x, y) => x[1] - y[1])[0]?.[0] ?? 'intent';
   const out: Dispatch = { command, intent: intent.choice, ship: ship.choice, confidence, weakest, latency, answers };
   if (intent.choice === 'none') out.reason = 'not an order';
+  else if (intent.choice === 'unsupported') out.reason = 'unsupported';
   else if (confidence < 0.45) { out.reason = `unsure (${Math.round(confidence * 100)}%)`; out.command = null; }
   return out;
 }

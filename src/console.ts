@@ -59,10 +59,13 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
       const det = pending.querySelector('.detail') as HTMLSpanElement | null;
       if (det) det.textContent = detailOf(d);
       pending.dataset.detail = detailOf(d);
+      const ships = resolve(d.ship);
+      const speaker = ships[0] ?? flagship();
+      // Understood but impossible is a different answer from not understood.
+      if (d.intent === 'unsupported') { line('refused', speaker, "Understood, captain, but we don't know how to do that yet."); return; }
       if (!d.command || d.intent === 'none') { line('refused', flagship(), 'Say again, captain?'); return; }
       const t = tier(d.confidence);
-      if (t === 'refused') { line('refused', flagship(), `Say again, captain? ${weakest(d)}`); return; }
-      const ships = resolve(d.ship);
+      if (t === 'refused') { line('refused', speaker, `Say again, captain? ${weakest(d)}`); return; }
       if (!ships.length) { line('refused', flagship(), `No ship called ${d.ship}.`); return; }
       if (d.command.op === 'report') { for (const s of ships) line('info', s, report(s)); return; }
       carryOut(ships, d.command, t);
