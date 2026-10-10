@@ -182,3 +182,4 @@ if a manoeuvre misbehaves.
 - Rules are data (JSON), shown on screen and readable back by voice.
 - Jev never sits inside the game loop; it only translates one utterance into one command.
 - No browser speech-to-text; the text box is dictated into with MacWhisper.
+1

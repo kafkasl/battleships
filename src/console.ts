@@ -38,6 +38,12 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
   arm.addEventListener('click', () => { armed = !armed; paintArm(); if (armed) input.focus(); });
   paintArm();
   chips.appendChild(arm);
+  const forget = document.createElement('button');
+  forget.id = 'forget';
+  forget.textContent = '✕ clear manoeuvres';
+  forget.title = 'forget every learned manoeuvre and restart with the two rehearsed ones';
+  forget.addEventListener('click', () => { forgetAll(); location.reload(); });
+  chips.appendChild(forget);
   // Tappable example orders: a stranger (or a phone) can play without typing a word.
   for (const text of ['all ships, engage the enemy', 'fighters, stay behind Mother', 'frigates, circle the Dragon while firing', 'all ships, belay that', 'all ships report']) {
     const b = document.createElement('button');
