@@ -33,13 +33,13 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
   const paintArm = () => {
     arm.textContent = armed ? '◆ describe the manoeuvre…' : '+ Add manoeuvre';
     arm.classList.toggle('on', armed);
-    input.placeholder = armed ? 'describe the manoeuvre, e.g. "fighters, stay behind the Vigilant"' : 'type or dictate an order, then Enter';
+    input.placeholder = armed ? 'describe the manoeuvre, e.g. "fighters, stay behind Mother"' : 'type or dictate an order, then Enter';
   };
   arm.addEventListener('click', () => { armed = !armed; paintArm(); if (armed) input.focus(); });
   paintArm();
   chips.appendChild(arm);
   // Tappable example orders: a stranger (or a phone) can play without typing a word.
-  for (const text of ['all ships, engage the enemy', 'fighters, stay behind the Vigilant', 'frigates, circle the Ravager while firing', 'all ships, belay that', 'all ships report']) {
+  for (const text of ['all ships, engage the enemy', 'fighters, stay behind Mother', 'frigates, circle the Dragon while firing', 'all ships, belay that', 'all ships report']) {
     const b = document.createElement('button');
     b.textContent = text;
     b.addEventListener('click', () => { submit(text); input.blur(); });

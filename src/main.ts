@@ -76,6 +76,11 @@ const arenaEdge = new THREE.Line(
   new THREE.LineBasicMaterial({ color: 0x5fc8ff, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
 scene.add(arenaEdge);
 let panX = 0, panZ = 0;
+const mousePx = { x: innerWidth / 2, y: innerHeight / 2 };
+let mouseIn = false;
+addEventListener('pointermove', (e) => { mousePx.x = e.clientX; mousePx.y = e.clientY; mouseIn = true; });
+document.addEventListener('mouseleave', () => { mouseIn = false; });
+addEventListener('blur', () => { mouseIn = false; });
 const panKeys: Record<string, [number, number]> = { w: [0, 1], arrowup: [0, 1], s: [0, -1], arrowdown: [0, -1], a: [-1, 0], arrowleft: [-1, 0], d: [1, 0], arrowright: [1, 0] };
 const held = new Set<string>();
 const recomputePan = () => { panX = 0; panZ = 0; for (const k of held) { const v = panKeys[k]; if (v) { panX += v[0]; panZ += v[1]; } } };
@@ -113,23 +118,23 @@ const explosions = new ExplosionSystem(scene);
 
 const sim = new Sim();
 // Fleets deploy offset from each other so a head-on charge does not drive straight through the enemy.
-const player = sim.add(makeSimShip({ id: 'vigilant', name: 'Vigilant', type: 'capital', faction: 'player', pos: { x: -160, y: 0, z: 560 } }));
-const foe = sim.add(makeSimShip({ id: 'ravager', name: 'Ravager', type: 'capital', faction: 'enemy', color: '#ff6a5a',
+const player = sim.add(makeSimShip({ id: 'mother', name: 'Mother', type: 'capital', faction: 'player', pos: { x: -160, y: 0, z: 560 } }));
+const foe = sim.add(makeSimShip({ id: 'dragon', name: 'Dragon', type: 'capital', faction: 'enemy', color: '#ff6a5a',
   pos: { x: 180, y: 10, z: -560 }, heading: 180, desiredHeading: 180, desiredAltitude: 10, weaponsFree: true, hull: 300 }));
 const raiders = [1, 2, 3, 4].map((n) => sim.add(makeSimShip({
-  id: `raider${n}`, name: `Raider ${n}`, type: 'fighter', faction: 'enemy', color: '#ff8a7a', weaponsFree: true, hull: 20,
+  id: `drone${n}`, name: `Drone ${n}`, type: 'fighter', faction: 'enemy', color: '#ff8a7a', weaponsFree: true, hull: 20,
   pos: { x: 180 + (n - 2.5) * 70, y: 10 + (n % 2) * 14, z: -460 }, heading: 180, desiredHeading: 180, desiredAltitude: 10 + (n % 2) * 14,
 })));
 const hostiles = [foe, ...raiders];
 // The fleet you command. Names are chosen to be easy to say out loud.
-const kestrel = sim.add(makeSimShip({ id: 'kestrel', name: 'Kestrel', type: 'frigate', faction: 'player', color: '#7fd3ff',
+const red = sim.add(makeSimShip({ id: 'red', name: 'Red', type: 'frigate', faction: 'player', color: '#7fd3ff',
   pos: { x: -280, y: 6, z: 600 }, desiredAltitude: 6 }));
-const heron = sim.add(makeSimShip({ id: 'heron', name: 'Heron', type: 'frigate', faction: 'player', color: '#9fffd0',
+const blue = sim.add(makeSimShip({ id: 'blue', name: 'Blue', type: 'frigate', faction: 'player', color: '#9fffd0',
   pos: { x: -40, y: 6, z: 600 }, desiredAltitude: 6 }));
-const frigates = [kestrel, heron];
+const frigates = [red, blue];
 const alphaColors = ['#c9b3ff', '#ffb3d9', '#ffe29a'];
 const alphas = [1, 2, 3].map((n) => sim.add(makeSimShip({
-  id: `alpha${n}`, name: `Alpha ${n}`, type: 'fighter', faction: 'player', color: alphaColors[n - 1],
+  id: `eagle${n}`, name: `Eagle ${n}`, type: 'fighter', faction: 'player', color: alphaColors[n - 1],
   pos: { x: -160 + (n - 2) * 50, y: 14, z: 470 }, desiredAltitude: 14,
 })));
 player.color = '#ffd59a';
@@ -140,15 +145,15 @@ const visuals = new Map<string, ShipVisual>();
 /** What Jev may address. Labels resolve to ships; descriptions teach Jev every way to say them. */
 function addressing() {
   const roster: Record<string, string> = {
-    flagship: 'the Vigilant, our capital ship, the flagship, the carrier. Also the default when the order names no particular ship',
-    kestrel: 'the frigate Kestrel',
-    heron: 'the frigate Heron',
-    frigates: 'both frigates: the frigates, the escorts',
-    alpha1: 'the fighter Alpha 1, alpha one',
-    alpha2: 'the fighter Alpha 2, alpha two',
-    alpha3: 'the fighter Alpha 3, alpha three',
-    fighters: 'all three fighters: the fighters, the wing, alpha wing',
-    enemy: 'the enemy ship Ravager, the enemy capital ship, them',
+    flagship: 'Mother, our capital ship, the mothership, the flagship, the big ship. Also the default when the order names no particular ship',
+    red: 'the frigate Red',
+    blue: 'the frigate Blue',
+    frigates: 'both frigates: the frigates, Red and Blue, the escorts',
+    eagle1: 'the fighter Eagle 1, eagle one',
+    eagle2: 'the fighter Eagle 2, eagle two',
+    eagle3: 'the fighter Eagle 3, eagle three',
+    fighters: 'all three fighters: the fighters, the eagles, the wing',
+    enemy: 'the enemy ship Dragon, the enemy capital ship, the drones, them',
   };
   const alive = (ships: Ship[]) => ships.filter((s) => sim.ships.has(s.id));
   const resolve = (label: string): Ship[] => {
@@ -184,7 +189,7 @@ function endMatch(outcome: string) {
   const seconds = Math.round((performance.now() - match.started) / 1000);
   const el = document.getElementById('results')!;
   el.style.display = '';
-  (el.querySelector('h1') as HTMLElement).textContent = outcome === 'victory' ? 'Ravager destroyed' : outcome === 'defeat' ? 'Vigilant lost' : 'Time is up';
+  (el.querySelector('h1') as HTMLElement).textContent = outcome === 'victory' ? 'Dragon destroyed' : outcome === 'defeat' ? 'Mother lost' : 'Time is up';
   (el.querySelector('.stats') as HTMLElement).textContent = `${seconds}s · ${match.kills} enemy ships destroyed · ${match.losses} ships lost`;
   const nameInput = el.querySelector('input') as HTMLInputElement;
   const renderBoard = (runs: Run[], mine?: Run) => {
@@ -455,12 +460,19 @@ function tick() {
     tmp.set(pinned.pos.x, pinned.pos.y, pinned.pos.z).sub(controls.target);
     controls.target.add(tmp); camera.position.add(tmp);
   }
-  // WASD / arrows pan across the battle plane, relative to the view.
-  if (panX || panZ) {
+  // WASD / arrows pan across the battle plane, relative to the view. So does the mouse at a screen edge.
+  let ex = 0, ez = 0;
+  if (mouseIn && !match.over) {
+    const EDGE = 28;
+    if (mousePx.x < EDGE) ex = -1; else if (mousePx.x > innerWidth - EDGE) ex = 1;
+    if (mousePx.y < EDGE) ez = 1; else if (mousePx.y > innerHeight - EDGE) ez = -1;
+  }
+  const px = panX + ex, pz = panZ + ez;
+  if (px || pz) {
     const speed = controls.getDistance() * 0.8 * dt;
     const fwd = new THREE.Vector3().subVectors(controls.target, camera.position).setY(0).normalize();
     const right = new THREE.Vector3().crossVectors(fwd, new THREE.Vector3(0, 1, 0));
-    tmp.copy(fwd).multiplyScalar(panZ * speed).addScaledVector(right, panX * speed);
+    tmp.copy(fwd).multiplyScalar(pz * speed).addScaledVector(right, px * speed);
     controls.target.add(tmp); camera.position.add(tmp);
   }
   controls.update();

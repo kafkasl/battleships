@@ -102,7 +102,7 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     // soaked up every "all ahead" and "all stop".
     fleet: { type: 'noul', instructions: 'Does the captain address every ship in the fleet at once?', criteria: {
       true: 'the order contains an explicit fleet-wide address: "all ships", "everyone", "everybody", "whole fleet", "fleet,"',
-      false: 'the order names one ship or one class (Vigilant, Kestrel, frigates, fighters, Alpha 2), or names nobody. Words like "all ahead" and "all stop" are speed settings, not addresses',
+      false: 'the order names one ship or one class (Mother, Red, Blue, frigates, fighters, Eagle 2), or names nobody. Words like "all ahead" and "all stop" are speed settings, not addresses',
     } },
   };
   const r = await fetch('/jev', {
@@ -156,7 +156,10 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   for (const k of Object.keys(WANTS)) {
     if (k === intent.choice) continue;
     const yes = (answers['wants_' + k] as unknown as { noul: number } | undefined)?.noul ?? 0;
-    if (yes >= 0.6) { const c = build(k); if (c) extras.push(c); }
+    if (yes < 0.6) continue;
+    const c = build(k);
+    // A ship runs one manoeuvre at a time: a second one in the same breath would silently replace the first.
+    if (c && !(c.op === 'behaviour' && command?.op === 'behaviour')) extras.push(c);
   }
   const confidence = Math.min(...used.map(prob));
   const weakest = used.map((u) => [u === ship ? 'ship' : Object.keys(answers).find((k) => answers[k] === u) ?? '?', prob(u)] as const)
