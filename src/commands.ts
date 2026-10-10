@@ -12,7 +12,19 @@ export function execute(ship: Ship, c: Command): Result {
   const station = needs[c.op];
   if (station && ship.stations[station] <= 0) return { ok: false, reason: `Nobody is on ${station === 'sensoria' ? 'sensors' : station}, captain.` };
   let msg: string;
+  const manual = c.op === 'setSpeed' || c.op === 'turn' || c.op === 'setHeading' || c.op === 'climb' || c.op === 'setAltitude';
+  const wasRunning = manual && ship.behaviour ? ship.behaviour : undefined;
+  if (manual) ship.behaviour = undefined;
   switch (c.op) {
+    case 'behaviour':
+      ship.behaviour = c.id;
+      ship.memory = {};
+      msg = `${c.name}, aye.`;
+      break;
+    case 'stopBehaviour':
+      msg = ship.behaviour ? 'Belay that, holding course.' : 'Nothing to belay.';
+      ship.behaviour = undefined;
+      break;
     case 'setSpeed':
       ship.desiredSpeed = SPEED_LEVELS[c.level];
       msg = { stop: 'All stop.', slow: 'Slow ahead.', half: 'Half ahead.', full: 'Full ahead.' }[c.level];
@@ -51,6 +63,7 @@ export function execute(ship: Ship, c: Command): Result {
       break;
     }
   }
+  if (wasRunning) msg += ' Manoeuvre cancelled.';
   ship.lastOrder = msg;
   return { ok: true, msg };
 }
@@ -95,6 +108,7 @@ export function parse(text: string): Command | { error: string } {
     case 'altitude': case 'alt': return { op: 'setAltitude', y: num(w[1], 0) };
     case 'fire': return { op: 'fire' };
     case 'hold': return { op: 'holdFire' };
+    case 'belay': return { op: 'stopBehaviour' };
     case 'crew':
       if (STATIONS.includes(w[1] as StationId)) return { op: 'assignCrew', station: w[1] as StationId, n: num(w[2], 1) };
       return { error: `crew ${STATIONS.join('|')} <n>` };

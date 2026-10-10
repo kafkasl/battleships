@@ -139,30 +139,38 @@ DONE
   Crew-voice readbacks, confidence tiers (green / amber / red), D debug toggle, ship card on hover/click.
 - Fleet: Vigilant (capital), Kestrel + Heron (frigates), Alpha 1-3 (fighters). Enemy: Ravager + escorts.
 
+- Combat: weapons free, 270° firing arc (90° cone astern is blind), range arcs on the grid, hull bars, enemy
+  return fire, explosions, dead ships removed.
+- Academy: an order the ships cannot carry out goes to Opus (`src/academy.ts`), which writes a behaviour
+  (`src/behaviours.ts`: a function run every tick against a tiny API). It is applied at once and becomes a new
+  Jev intent, so the next "frigates, circle them too" routes in ~300 ms with no LLM in the loop.
+  "belay that" cancels. A crash says "I'm too dumb for that, captain." Learned manoeuvres persist in
+  localStorage; a rehearsed "Clockwise Orbit" is baked in as a fallback if the API is down on stage.
+
 NOT DONE, in demo-value order
-1. Combat that matters. "Fire" does nothing yet; beams are decorative. Needs: fire at nearest
-   known enemy contact, hull damage, ship death with an explosion. Without this there is no battle.
-2. Contact rendering (fog of war). Enemies only visible as glowing returns inside sensor range, resolving
-   to models when analysis is manned. This is the crew mechanic made visible, and the best demo moment:
-   "man the sensors" and the enemy appears.
-3. Rules. "If an enemy is within 200, fire and turn right." Enemy ships run rules too. Cut to the simplest
-   form if time is short: one trigger (enemy within X), one or two actions.
-4. Polish: explosions, hit sparks, camera shake, sound.
+1. Rehearse the demo script below three times with the real phrases. Note any misroutes and fix descriptions.
+2. Enemy doctrine: Ravager and raiders hold position and track the nearest ship. Good enough for the demo.
+3. Polish if time remains: hit sparks, camera shake, sound, wreck debris.
 
 CUT for the demo: bridge-staffing confidence mechanic, follow-up questions on low confidence, saving rules,
 multiple player capital ships, 3D rule triggers (above / below).
 
-## 6. Demo script (3 minutes)
+## 6. Demo script: "why are we still clicking?"
 
-1. Open on the fleet in the nebula. Orbit the camera. "This is Battlefleet: you command by voice."
-2. "Vigilant, full ahead." Readback, ship moves, ring pulses. "Fighters, climb 50." Drop lines rise.
-3. "All ships report." Crew voice status. Show the ship card on hover.
-4. "Man the sensors." Enemy returns appear as glows. "Put one on analysis." They resolve into Ravager and escorts.
-5. "Fighters, if an enemy comes within 200, fire." Rule stored, shown. Enemy closes. Fighters open up.
-6. Press D once: "every order is one Jev call, 300 ms, closed-choice questions, no LLM in the loop."
-7. Ravager dies in a bloom of fire. End on the wreck drifting past the grid.
+1. Open on the fleet in the nebula. Orbit the camera. "Space battles in 2026 and we still click on ships."
+2. "All ships, weapons free." "All ships, full ahead." Readbacks in crew voice, rings pulse. Beams fly.
+3. Watch the fighters overshoot Ravager. Their range arcs on the grid show the open cone astern: they
+   cannot shoot behind them. "Not ideal."
+4. "Fighters, circle clockwise around the enemy ships while firing at them." Alpha 1: "we don't know how to
+   do that yet." Academy line appears. ~10 s later: new manoeuvre learned, fighters wheel into orbit and keep
+   firing. "I just taught my fleet a manoeuvre by describing it."
+5. "Frigates, circle them too." Instant: Jev routes to the new manoeuvre, no LLM in the loop. Press D once to
+   show the intent line with `do_orbit_clockwise` as a new option.
+6. Ravager dies in a bloom of fire. "No more clicking. Intelligent behaviour, on the fly."
 
-Fallbacks: if speech-to-text misbehaves, type the orders. If Jev misroutes, say the ship name first.
+Fallbacks: speech-to-text misbehaves → type the order. Jev misroutes → say the ship name first.
+Academy down → the rehearsed Clockwise Orbit is baked in and loads automatically. "Alpha 1, belay that"
+if a manoeuvre misbehaves.
 
 ## 7. Decisions made
 

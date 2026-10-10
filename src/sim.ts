@@ -45,6 +45,8 @@ export type Command =
   | { op: 'setAltitude'; y: number }
   | { op: 'fire'; target?: string }
   | { op: 'holdFire' }
+  | { op: 'behaviour'; id: string; name: string }
+  | { op: 'stopBehaviour' }
   | { op: 'assignCrew'; station: StationId; n: number };
 
 export interface Ship {
@@ -67,6 +69,8 @@ export interface Ship {
   stations: Record<StationId, number>;
   rules: Rule[];
   contacts: Contact[];
+  behaviour?: string;       // id of the behaviour this ship is running, if any
+  memory?: Record<string, unknown>;
   color: string;            // the ship's colour in the log and on its grid marker
   lastOrder: string;        // crew-voice readback of the last order it carried out
 }

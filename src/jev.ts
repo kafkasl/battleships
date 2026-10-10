@@ -14,6 +14,7 @@ export const INTENTS = {
   climb: 'change altitude: climb, go up, dive, descend, go down, rise',
   fire: 'start shooting: open fire, weapons free, engage, fire at will, attack',
   holdFire: 'stop shooting: hold fire, cease fire, stand down, weapons hold',
+  stopBehaviour: 'cancel the current manoeuvre: belay that, stop that, as you were, break off',
   assignCrew: 'move crew to a station: man the engines, put two on sensors, crew the weapons',
   report: 'ask for a status report: report, status, sitrep, what are you doing, where are you',
   unsupported: 'a real order, but one the ship has no way to carry out: formations, get in front of, follow, escort, intercept, dock, retreat to, repair, go to a place, anything not in the list above',
@@ -65,13 +66,19 @@ const firstNumber = (s: string): number | undefined => {
   return undefined;
 };
 
-export async function dispatch(transcript: string, roster: Roster, shipNames: string[] = []): Promise<Dispatch> {
+/** Learned behaviours, as extra intent options: label -> { description, name }. */
+export type Learned = Record<string, { description: string; name: string }>;
+
+export async function dispatch(transcript: string, roster: Roster, shipNames: string[] = [], learned: Learned = {}): Promise<Dispatch> {
   const t0 = performance.now();
   // Numbers inside ship names ("Alpha 2") must not be read as amounts.
   let stripped = transcript;
   for (const n of shipNames) stripped = stripped.replace(new RegExp(n.replace(/\s+/g, '\\s*'), 'gi'), ' ');
+  const intents: Record<string, string> = { ...INTENTS };
+  for (const [id, b] of Object.entries(learned)) intents['do_' + id] = `the manoeuvre "${b.name}": ${b.description}`;
   const questions = {
     ...QUESTIONS,
+    intent: choice('What kind of order did the captain give?', intents),
     ship: choice('Which ship or group is the order addressed to?', roster),
     // Fleet-wide addressing is its own yes/no question. Inside the ship choice, an "all ships" option
     // soaked up every "all ahead" and "all stop".
@@ -103,6 +110,10 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     case 'climb': used.push(a('climbDir')); if (n === undefined) used.push(a('climbAmount')); command = { op: 'climb', amount: (a('climbDir').choice === 'down' ? -1 : 1) * (n ?? Number(a('climbAmount').choice)) }; break;
     case 'fire': command = { op: 'fire' }; break;
     case 'holdFire': command = { op: 'holdFire' }; break;
+    case 'stopBehaviour': command = { op: 'stopBehaviour' }; break;
+    default:
+      if (intent.choice.startsWith('do_')) { const id = intent.choice.slice(3); command = { op: 'behaviour', id, name: learned[id]?.name ?? id }; }
+      break;
     case 'report': command = { op: 'report' }; break;
     case 'assignCrew': used.push(a('station')); if (n === undefined) used.push(a('crewCount')); command = { op: 'assignCrew', station: a('station').choice as StationId, n: n ?? Number(a('crewCount').choice) }; break;
   }

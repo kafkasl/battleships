@@ -1,7 +1,9 @@
 // Order log: one line per ship per order, built for a glance: badge in the ship's colour, a
 // crew-voice readback, and a confidence tier shown as a colour bar. D toggles the debug detail.
 import { parse, execute, report } from './commands';
-import { dispatch, type Roster, type Dispatch } from './jev';
+import { dispatch, type Roster, type Dispatch, type Learned } from './jev';
+import { behaviours } from './behaviours';
+import { learn } from './academy';
 import type { Sim, Ship, Command } from './sim';
 
 export interface Addressing {
@@ -11,6 +13,8 @@ export interface Addressing {
 
 type Tier = 'sure' | 'hedge' | 'refused' | 'info';
 const tier = (conf: number): Tier => (conf >= 0.7 ? 'sure' : conf >= 0.45 ? 'hedge' : 'refused');
+
+const learned = (): Learned => Object.fromEntries([...behaviours.values()].map((b) => [b.id, { description: b.description, name: b.name }]));
 
 export function installConsole(sim: Sim, flagship: () => Ship, addressing: () => Addressing,
                                onOrder: (ship: Ship) => void) {
@@ -54,15 +58,31 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
     const pending = line('info', null, text);
     const { roster, resolve } = addressing();
     try {
-      const d = await dispatch(text, roster, [...sim.ships.values()].map((s) => s.name));
+      const d = await dispatch(text, roster, [...sim.ships.values()].map((s) => s.name), learned());
       if (debug) pending.insertAdjacentHTML('beforeend', '<span class="detail"></span>');
       const det = pending.querySelector('.detail') as HTMLSpanElement | null;
       if (det) det.textContent = detailOf(d);
       pending.dataset.detail = detailOf(d);
       const ships = resolve(d.ship);
       const speaker = ships[0] ?? flagship();
-      // Understood but impossible is a different answer from not understood.
-      if (d.intent === 'unsupported') { line('refused', speaker, "Understood, captain, but we don't know how to do that yet."); return; }
+      // Understood but impossible is a different answer from not understood. Send it to the academy:
+      // Opus writes the manoeuvre once, the ships run it, and from now on Jev routes to it directly.
+      if (d.intent === 'unsupported') {
+        line('refused', speaker, "Understood, captain, but we don't know how to do that yet.");
+        const teaching = line('info', null, 'Academy: working on it…');
+        try {
+          const b = await learn(text, [...behaviours.keys()]);
+          teaching.className = 'line sure';
+          (teaching.querySelector('.text') as HTMLSpanElement).textContent = `Academy: new manoeuvre "${b.name}" learned. ${b.description}`;
+          teaching.dataset.detail = b.code;
+          if (debug) { const sp = document.createElement('span'); sp.className = 'detail'; sp.textContent = b.code; teaching.appendChild(sp); }
+          carryOut(ships.length ? ships : [flagship()], { op: 'behaviour', id: b.id, name: b.name }, 'sure');
+        } catch (e) {
+          teaching.className = 'line refused';
+          (teaching.querySelector('.text') as HTMLSpanElement).textContent = `Academy: ${String(e)}`;
+        }
+        return;
+      }
       if (!d.command || d.intent === 'none') { line('refused', flagship(), 'Say again, captain?'); return; }
       const t = tier(d.confidence);
       if (t === 'refused') { line('refused', speaker, `Say again, captain? ${weakest(d)}`); return; }

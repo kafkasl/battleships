@@ -9,6 +9,8 @@ import { makeShip, makeRock, type ShipVisual } from './fleet';
 import { makeCapital, blinkLights } from './capital';
 import { Sim, makeShip as makeSimShip, type Ship, SHIP_TYPES, BLIND_CONE } from './sim';
 import { installConsole } from './console';
+import { runBehaviours } from './behaviours';
+import { restore } from './academy';
 import { BeamSystem, ExplosionSystem, flickerEngine, makeDust, makeGrid } from './fx';
 
 // ---- Renderer / scene / camera ------------------------------------------
@@ -142,7 +144,8 @@ function addressing() {
 
 // Ships flash their grid marker when they take an order.
 const flash = new Map<string, number>();
-installConsole(sim, () => player, addressing, (s) => flash.set(s.id, performance.now()));
+const ui = installConsole(sim, () => player, addressing, (s) => flash.set(s.id, performance.now()));
+for (const b of restore()) ui.line('info', null, `Remembered manoeuvre "${b.name}".`);
 
 // Ship card: hover previews a ship, click pins it. Defaults to the flagship.
 let pinned: Ship = player;
@@ -301,6 +304,7 @@ function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
   const t = clock.elapsedTime;
 
+  runBehaviours(sim, dt, (s, e) => { ui.line('refused', s, `I'm too dumb for that, captain. (${String(e)})`); });
   sim.tick(dt);
   for (const s of sim.ships.values()) syncVisual(s);
   for (const v of visuals.values()) { v.engines.forEach((e, i) => flickerEngine(e, t, v.seed + i)); blinkLights(v, t); }
@@ -310,7 +314,7 @@ function tick() {
   document.body.style.cursor = hovered ? 'pointer' : '';
   inputsPanel.style.borderColor = card.color;
   inputsPanel.innerHTML = `<b style="color:${card.color}">${card.name}</b> <span class="cls">${card.type}${card === hovered && card !== pinned ? ' · click to pin' : ''}</span>\n` +
-    `<i>${card.lastOrder}</i>\n\n` +
+    `<i>${card.lastOrder}</i>${card.behaviour ? ` <span class="cls">· running ${card.behaviour}</span>` : ''}\n\n` +
     `speed     ${Math.round(card.speed * 100)}%  →  ${Math.round(card.desiredSpeed * 100)}%\n` +
     `heading   ${Math.round(card.heading).toString().padStart(3, '0')}  →  ${Math.round(card.desiredHeading).toString().padStart(3, '0')}\n` +
     `altitude  ${Math.round(card.pos.y)}  →  ${Math.round(card.desiredAltitude)}\n` +
