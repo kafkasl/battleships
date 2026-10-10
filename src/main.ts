@@ -194,7 +194,6 @@ function syncVisual(s: Ship) {
 }
 
 interface Actor { v: ShipVisual; orbitR: number; orbitSpeed: number; phase: number; y: number; }
-const wing: Actor[] = [];
 let flagship: ShipVisual | null = null;
 const enemies: Actor[] = [];
 const rocks: THREE.Group[] = [];
@@ -212,17 +211,6 @@ async function build() {
   for (const [i, f] of frigates.entries()) {
     const v = makeCapital({ length: 55, accent: 0xd2602e, engine: ENGINE_BLUE, seed: 11 + i });
     visuals.set(f.id, v);
-    scene.add(v.root);
-  }
-
-  // Escort wing: small ships in a loose sphere around the flagship, slowly circling.
-  const fighters = ['fighter_a', 'fighter_b', 'fighter_c'];
-  for (let i = 0; i < 18; i++) {
-    const v = await makeShip(fighters[i % 3], 7 + Math.random() * 5, ENGINE_BLUE, 1);
-    wing.push({
-      v, orbitR: 60 + Math.random() * 140, orbitSpeed: (0.02 + Math.random() * 0.04) * (Math.random() < 0.5 ? 1 : -1),
-      phase: Math.random() * Math.PI * 2, y: (Math.random() - 0.5) * 70,
-    });
     scene.add(v.root);
   }
 
@@ -284,16 +272,6 @@ function tick() {
   // The enemy capital ship patrols in a slow circle so there is always something to shoot at.
   if (Math.floor(t / 20) !== Math.floor((t - dt) / 20)) foe.desiredHeading = (foe.desiredHeading + 60) % 360;
 
-  for (const a of wing) {
-    const ang = a.phase + t * a.orbitSpeed;
-    const x = player.pos.x + Math.cos(ang) * a.orbitR, z = player.pos.z + Math.sin(ang) * a.orbitR;
-    a.v.root.position.set(x, player.pos.y + a.y + Math.sin(t * 0.5 + a.phase) * 4, z);
-    // face along the orbit tangent
-    tmp.set(-Math.sin(ang) * a.orbitSpeed, 0, Math.cos(ang) * a.orbitSpeed).normalize();
-    a.v.root.lookAt(a.v.root.position.clone().sub(tmp));
-    a.v.root.rotateZ(Math.sin(t * 0.7 + a.phase) * 0.15);
-    a.v.engines.forEach((e) => flickerEngine(e, t, a.v.seed));
-  }
   for (const a of enemies) {
     const ang = a.phase + t * a.orbitSpeed;
     a.v.root.position.set(foe.pos.x + Math.cos(ang) * a.orbitR * 0.3, foe.pos.y + a.y, foe.pos.z + Math.sin(ang) * a.orbitR * 0.3);
@@ -315,13 +293,13 @@ function tick() {
       const from = flagship.root.localToWorld(new THREE.Vector3((Math.random() < 0.5 ? -1 : 1) * 16, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 90));
       beams.fire(from, enemyPos(), 0x8fa6ff, 0.9, 0.7);
     } else if (r < 0.7) {
-      const w = wing[Math.floor(Math.random() * wing.length)];
-      beams.fire(w.v.root.position.clone(), enemyPos(), 0x9fb6ff, 0.35, 0.35);
+      const w = visuals.get(fleet[1 + Math.floor(Math.random() * (fleet.length - 1))].id);
+      if (w) beams.fire(w.root.position.clone(), enemyPos(), 0x9fb6ff, 0.35, 0.35);
     } else {
       const from = Math.random() < 0.5
         ? foeVisual.root.localToWorld(new THREE.Vector3((Math.random() < 0.5 ? -1 : 1) * 14, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 80))
         : enemies[Math.floor(Math.random() * enemies.length)].v.root.position.clone();
-      const target = Math.random() < 0.4 ? flagship.root.position.clone() : wing[Math.floor(Math.random() * wing.length)].v.root.position.clone();
+      const target = (Math.random() < 0.4 ? flagship : visuals.get(fleet[1 + Math.floor(Math.random() * (fleet.length - 1))].id) ?? flagship).root.position.clone();
       beams.fire(from, target, 0xff8a5a, 0.5, 0.35);
     }
   }
