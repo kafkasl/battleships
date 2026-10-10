@@ -66,9 +66,12 @@ ${EXAMPLES.map((x) => `Request: "${x.request}"\n${JSON.stringify(x.spec)}`).join
 export function restore(): Behaviour[] {
   const out: Behaviour[] = [];
   if (location.search.includes('stage')) { forgetAll(); return out; }
-  let any = false;
-  try { for (let i = 0; i < localStorage.length; i++) if (localStorage.key(i)!.startsWith('behaviour:')) any = true; } catch { /* ignore */ }
-  if (!any) {
+  let any = false, cleared = false;
+  try {
+    cleared = localStorage.getItem('manoeuvres:cleared') === '1';
+    for (let i = 0; i < localStorage.length; i++) if (localStorage.key(i)!.startsWith('behaviour:')) any = true;
+  } catch { /* ignore */ }
+  if (!any && !cleared) {
     for (const x of EXAMPLES) { out.push(compile(x.spec)); try { localStorage.setItem('behaviour:' + x.spec.id, JSON.stringify(x.spec)); } catch { /* ignore */ } }
     return out;
   }
@@ -82,8 +85,10 @@ export function restore(): Behaviour[] {
   return out;
 }
 
+/** Forget every learned manoeuvre. The rehearsed ones are not preloaded again until site data is cleared. */
 export function forgetAll() {
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i)!; if (k.startsWith('behaviour:')) localStorage.removeItem(k); }
+    localStorage.setItem('manoeuvres:cleared', '1');
   } catch { /* ignore */ }
 }

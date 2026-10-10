@@ -41,7 +41,7 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
   const forget = document.createElement('button');
   forget.id = 'forget';
   forget.textContent = '✕ clear manoeuvres';
-  forget.title = 'forget every learned manoeuvre and restart with the two rehearsed ones';
+  forget.title = 'forget every learned manoeuvre; only Engage remains';
   forget.addEventListener('click', () => { forgetAll(); location.reload(); });
   chips.appendChild(forget);
   // Tappable example orders: a stranger (or a phone) can play without typing a word.
