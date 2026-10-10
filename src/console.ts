@@ -165,7 +165,7 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
   addEventListener('keydown', (e) => {
     if (document.activeElement === input) return;
     if (e.key === 'Enter') { input.focus(); e.preventDefault(); }
-    if (e.key.toLowerCase() === 'd') {
+    if (e.key === '`') {
       debug = !debug;
       log.classList.toggle('debug', debug);
       log.querySelectorAll<HTMLDivElement>('.line').forEach((l) => {

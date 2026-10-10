@@ -89,8 +89,7 @@ addEventListener('keydown', (e) => {
   const k = e.key.toLowerCase();
   if (k === 'g') grid.visible = !grid.visible;
   if (k === 'l') followCam = !followCam;
-  if (k in panKeys && k !== 'd') { held.add(k); recomputePan(); e.preventDefault(); }
-  if (k === 'd' && e.shiftKey) { held.add('d'); recomputePan(); }
+  if (k in panKeys) { held.add(k); recomputePan(); e.preventDefault(); }
 });
 addEventListener('keyup', (e) => { held.delete(e.key.toLowerCase()); recomputePan(); });
 
