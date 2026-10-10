@@ -14,7 +14,7 @@ export const INTENTS = {
   climb: 'change altitude: climb, go up, dive, descend, go down, rise',
   engage: 'the single word engage or attack: engage, attack, go get them, charge, hunt them down. NOT "full ahead and open fire" or "full ahead and shoot the enemy", which are a speed order plus a fire order',
   fire: 'start shooting: open fire, shoot, shoot the enemy, fire on the enemy, weapons free, fire at will (even when combined with a speed order such as "full ahead and open fire")',
-  holdFire: 'stop shooting: hold fire, cease fire, stand down, weapons hold',
+  holdFire: 'stop shooting: hold fire, cease fire, stand down, weapons hold. NOT "belay that", which cancels a manoeuvre',
   stopBehaviour: 'cancel the current manoeuvre: belay that, as you were, break off, cancel the manoeuvre',
   assignCrew: 'move crew to a station: man the engines, put two on sensors, crew the weapons',
   report: 'ask for a status report: report, status, sitrep, what are you doing, where are you',
@@ -91,7 +91,8 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   // Several ships named in one breath ("Vigilant, Heron, Kestrel: move forward") need one yes/no per
   // addressee as well, for the same reason as the actions.
   const addr = Object.fromEntries(Object.entries(roster).filter(([k]) => k !== 'enemy')
-    .map(([k, v]) => ['addr_' + k, { type: 'noul', instructions: `Is this ship or group among those the order is addressed to: ${v}?` }]));
+    // The flagship's "default when nobody is named" clause must not leak into this question: here only names count.
+    .map(([k, v]) => ['addr_' + k, { type: 'noul', instructions: `Is ${v.split('. Also')[0]} named in this order, or covered by a group word it uses (frigates, fighters, all ships)? Answer no if only a different ship is named, and no if no ship is named at all.` }]));
   const questions = {
     ...QUESTIONS,
     ...nouls,
@@ -100,7 +101,7 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     ship: choice('Which ship or group is the order addressed to?', roster),
     // Fleet-wide addressing is its own yes/no question. Inside the ship choice, an "all ships" option
     // soaked up every "all ahead" and "all stop".
-    fleet: { type: 'noul', instructions: 'Does the order explicitly address the whole fleet, every ship at once? Yes examples: "all ships full ahead", "all battleships move forward", "everyone engage", "fleet, turn left", "all units weapons free". No examples: "full ahead", "all ahead", "all stop", "turn left 30", "climb 50", "open fire", "Mother full ahead", "frigates stop", "Eagle 2 turn right".' },
+    fleet: { type: 'noul', instructions: 'Does the order explicitly address the whole fleet, every ship at once? Yes examples: "all ships full ahead", "all battleships move forward", "everyone engage", "fleet, turn left", "all units weapons free". No examples: "full ahead", "all ahead", "all stop", "turn left 30", "climb 50", "open fire", "hold fire and come about", "Mother full ahead", "frigates stop", "Red Blue stop", "Eagle 2 turn right".' },
   };
   const r = await fetch('/jev', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -125,9 +126,11 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   if (ship.choice !== 'all') {
     // Per-ship answers are noisy on orders that name nobody (the flagship default), so demand more there
     // for single ships. Group words ("frigates", "fighters") are explicit enough to keep the lower bar.
+    // A confident flagship vote means nobody was named; a split vote means several were.
     const group = (k: string) => k === 'frigates' || k === 'fighters';
+    const unaddressed = ship.choice === 'flagship' && prob(ship) >= 0.7;
     for (const k of Object.keys(roster)) {
-      const bar = ship.choice === 'flagship' && !group(k) ? 0.85 : 0.6;
+      const bar = unaddressed && !group(k) ? 0.85 : 0.6;
       if (k !== ship.choice && addrYes(k) >= bar) also.push(k);
     }
     // With several addressees the single choice is split between them by design; judge it by the strongest yes.
@@ -160,7 +163,7 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   for (const k of Object.keys(WANTS)) {
     if (k === intent.choice) continue;
     const yes = (answers['wants_' + k] as unknown as { noul: number } | undefined)?.noul ?? 0;
-    if (yes < 0.7) continue;
+    if (yes < 0.6) continue;
     const c = build(k);
     if (!c) continue;
     // A ship runs one manoeuvre at a time, and a manoeuvre already covers movement: a second manoeuvre
@@ -169,6 +172,9 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     // "Open fire" is not "engage": a fire order must not start the ship moving. And engage already frees the guns.
     if (command?.op === 'fire' && c.op === 'behaviour' && c.id === 'engage') continue;
     if (command?.op === 'behaviour' && command.id === 'engage' && c.op === 'fire') continue;
+    // "Belay that" cancels a manoeuvre; it does not hold fire. And a direct movement order cancels manoeuvres by itself.
+    if (command?.op === 'stopBehaviour' && c.op === 'holdFire') continue;
+    if (c.op === 'stopBehaviour' && (command?.op === 'setSpeed' || command?.op === 'turn' || command?.op === 'climb' || command?.op === 'setHeading')) continue;
     extras.push(c);
   }
   const confidence = Math.min(...used.map(prob));

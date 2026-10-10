@@ -145,8 +145,8 @@ const visuals = new Map<string, ShipVisual>();
 function addressing() {
   const roster: Record<string, string> = {
     flagship: 'Mother, our capital ship, the mothership, the flagship, the big ship. Also the default when the order names no particular ship',
-    red: 'the frigate Red',
-    blue: 'the frigate Blue',
+    red: 'Red, the frigate named Red (not Blue)',
+    blue: 'Blue, the frigate named Blue (not Red)',
     frigates: 'both frigates: the frigates, Red and Blue, the escorts',
     eagle1: 'the fighter Eagle 1, eagle one',
     eagle2: 'the fighter Eagle 2, eagle two',
