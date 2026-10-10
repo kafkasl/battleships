@@ -171,12 +171,14 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     if (command?.op === 'behaviour' && (c.op === 'behaviour' || c.op === 'setSpeed' || c.op === 'turn' || c.op === 'climb' || c.op === 'setHeading')) continue;
     // "Open fire" is not "engage": a fire order must not start the ship moving. And engage already frees the guns.
     if (command?.op === 'fire' && c.op === 'behaviour' && c.id === 'engage') continue;
-    if (command?.op === 'behaviour' && command.id === 'engage' && c.op === 'fire') continue;
+    if (command?.op === 'behaviour' && c.op === 'fire') continue;   // manoeuvres free their own guns
     // "Belay that" cancels a manoeuvre; it does not hold fire. And a direct movement order cancels manoeuvres by itself.
     if (command?.op === 'stopBehaviour' && c.op === 'holdFire') continue;
     if (c.op === 'stopBehaviour' && (command?.op === 'setSpeed' || command?.op === 'turn' || command?.op === 'climb' || command?.op === 'setHeading')) continue;
     extras.push(c);
   }
+  // A taught manoeuvre's sentence names other ships as references ("stay behind Mother"): only the primary addressee runs it.
+  if (command?.op === 'behaviour' && command.id !== 'engage' && ship.choice !== 'all') also.length = 0;
   const confidence = Math.min(...used.map(prob));
   const weakest = used.map((u) => [u === ship ? 'ship' : Object.keys(answers).find((k) => answers[k] === u) ?? '?', prob(u)] as const)
     .sort((x, y) => x[1] - y[1])[0]?.[0] ?? 'intent';

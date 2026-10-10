@@ -55,6 +55,7 @@ export interface Behaviour {
   id: string;           // short identifier, also the Jev intent label
   name: string;         // what the crew calls it
   description: string;  // one line for Jev's intent question: phrases a captain would use to ask for it
+  request?: string;     // the sentence the captain taught it with; tapping its button resends this
   code: string;         // function body
   fn: (api: BehaviourAPI) => void;
 }

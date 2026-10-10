@@ -28,7 +28,7 @@ export async function learn(request: string, existing: string[]): Promise<Behavi
     return await learnOnline(request, existing);
   } catch (e) {
     const ex = EXAMPLES.find((x) => x.match.test(request) && !existing.includes(x.spec.id));
-    if (ex) { console.warn('academy offline, using a rehearsed manoeuvre', e); return compile(ex.spec); }
+    if (ex) { console.warn('academy offline, using a rehearsed manoeuvre', e); return compile({ ...ex.spec, request }); }
     throw e;
   }
 }
@@ -52,7 +52,8 @@ ${EXAMPLES.map((x) => `Request: "${x.request}"\n${JSON.stringify(x.spec)}`).join
   const text: string = j.content?.map((c: { text?: string }) => c.text ?? '').join('') ?? '';
   const m = text.match(/\{[\s\S]*\}/);
   if (!m) throw new Error('academy returned no JSON');
-  const spec = JSON.parse(m[0]) as { id: string; name: string; description: string; code: string };
+  const spec = JSON.parse(m[0]) as { id: string; name: string; description: string; code: string; request?: string };
+  spec.request = request;
   const b = compile(spec);
   try { localStorage.setItem('behaviour:' + b.id, JSON.stringify(spec)); } catch { /* storage may be unavailable */ }
   return b;

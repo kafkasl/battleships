@@ -185,6 +185,7 @@ const ui = installConsole(sim, () => player, addressing,
   (s) => { flash.set(s.id, performance.now()); },
   (name) => { ui.line('info', null, `Manoeuvre "${name}" added to the fleet's repertoire.`); });
 for (const b of restore()) ui.line('info', null, `Remembered manoeuvre "${b.name}".`);
+ui.renderChips();
 
 interface Run { name: string; outcome: string; kills: number; losses: number; seconds: number; }
 const loadRuns = (): Run[] => { try { return JSON.parse(localStorage.getItem('runs') ?? '[]'); } catch { return []; } };
@@ -377,6 +378,11 @@ async function build() {
   for (const r of raiders) {
     const v = await makeShip('enemy_small', 12, ENGINE_RED, 1);
     visuals.set(r.id, v);
+    scene.add(v.root);
+  }
+  for (const [i, f] of enemyFrigates.entries()) {
+    const v = makeCapital({ length: 55, accent: 0xb3242a, engine: ENGINE_RED, seed: 31 + i });
+    visuals.set(f.id, v);
     scene.add(v.root);
   }
 

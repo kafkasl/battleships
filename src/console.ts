@@ -45,13 +45,19 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
   forget.title = 'forget every learned manoeuvre';
   forget.addEventListener('click', () => { forgetAll(); location.reload(); });
   chips.appendChild(forget);
-  // Tappable example orders: a stranger (or a phone) can play without typing a word.
-  for (const text of ['All ships, full ahead and shoot the enemy', 'Mother and frigates, engage the enemy', 'teach: Eagles, stay behind Mother and shoot anything in range', 'all ships, engage the enemy', 'all ships, belay that', 'all ships report']) {
-    const b = document.createElement('button');
-    b.textContent = text;
-    b.addEventListener('click', () => { submit(text); input.blur(); });
-    chips.appendChild(b);
-  }
+  // One button per taught manoeuvre, labelled with its name; tapping resends the sentence it was taught with.
+  const renderChips = () => {
+    chips.querySelectorAll('.man-chip').forEach((c) => c.remove());
+    for (const b of behaviours.values()) {
+      if (b.id === 'engage') continue;
+      const btn = document.createElement('button');
+      btn.className = 'man-chip';
+      btn.textContent = '◆ ' + b.name;
+      btn.title = b.request ?? b.description;
+      btn.addEventListener('click', () => { submit(b.request ?? b.name); input.blur(); });
+      chips.appendChild(btn);
+    }
+  };
   let debug = false;
 
   const line = (t: Tier, ship: Ship | null, text: string, detail = '') => {
@@ -126,6 +132,7 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
           teaching.querySelector('.progress')?.remove();
           (teaching.querySelector('.text') as HTMLSpanElement).textContent = `new manoeuvre "${b.name}" ready. Ask for it any time.`;
           onLearned(b.name);
+          renderChips();
           teaching.dataset.detail = b.code;
           if (debug) { const sp = document.createElement('span'); sp.className = 'detail'; sp.textContent = b.code; teaching.appendChild(sp); }
           carryOut(ships.length ? ships : [flagship()], [{ op: 'behaviour', id: b.id, name: b.name }], 'sure');
@@ -184,6 +191,7 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
     }
   });
   addEventListener('keydown', (e) => { if (e.key === 'Escape') input.blur(); });
+  renderChips();
   line('info', flagship(), 'Bridge ready, captain. Give opening orders or teach a manoeuvre, then press Start.');
-  return { line, submit };
+  return { line, submit, renderChips };
 }
