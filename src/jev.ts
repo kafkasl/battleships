@@ -9,11 +9,11 @@ type Choice = { type: 'choice'; instructions: string; criteria: Record<string, s
 const choice = (instructions: string, criteria: Record<string, string | null>): Choice => ({ type: 'choice', instructions, criteria });
 
 export const INTENTS = {
-  setSpeed: 'change how fast the ship moves: full ahead, all ahead, go forward, advance, move out, half speed, slow, stop, halt, all stop, stop engines',
+  setSpeed: 'change how fast the ship moves: full ahead, all ahead, go forward, advance, move out, half speed, slow, stop, halt, all stop, hold position, stay put, stop engines',
   turn: 'rotate the ship: turn left / right / port / starboard, come about, hard to port',
   climb: 'change altitude: climb, go up, dive, descend, go down, rise',
-  engage: 'close with the enemy and fight: engage, attack, fire on the enemy, go get them, charge, take the fight to them, hunt them down',
-  fire: 'start shooting and nothing else, without moving: open fire, weapons free, fire at will',
+  engage: 'the single word engage or attack: engage, attack, go get them, charge, hunt them down. NOT "full ahead and open fire" or "full ahead and shoot the enemy", which are a speed order plus a fire order',
+  fire: 'start shooting: open fire, shoot, shoot the enemy, fire on the enemy, weapons free, fire at will (even when combined with a speed order such as "full ahead and open fire")',
   holdFire: 'stop shooting: hold fire, cease fire, stand down, weapons hold',
   stopBehaviour: 'cancel the current manoeuvre: belay that, as you were, break off, cancel the manoeuvre',
   assignCrew: 'move crew to a station: man the engines, put two on sensors, crew the weapons',
@@ -123,9 +123,13 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   let ship: JevAnswer = isFleet ? { choice: 'all', confidence: Math.max(fleet, 0.85), probabilities: { all: Math.max(fleet, 0.85) } } : a('ship');
   const also: string[] = [];
   if (ship.choice !== 'all') {
-    // Per-ship answers are noisy on orders that name nobody (the flagship default), so demand more there.
-    const bar = ship.choice === 'flagship' ? 0.85 : 0.6;
-    for (const k of Object.keys(roster)) if (k !== ship.choice && addrYes(k) >= bar) also.push(k);
+    // Per-ship answers are noisy on orders that name nobody (the flagship default), so demand more there
+    // for single ships. Group words ("frigates", "fighters") are explicit enough to keep the lower bar.
+    const group = (k: string) => k === 'frigates' || k === 'fighters';
+    for (const k of Object.keys(roster)) {
+      const bar = ship.choice === 'flagship' && !group(k) ? 0.85 : 0.6;
+      if (k !== ship.choice && addrYes(k) >= bar) also.push(k);
+    }
     // With several addressees the single choice is split between them by design; judge it by the strongest yes.
     if (also.length) {
       const best = Math.max(prob(ship), ...also.map((k) => (answers['addr_' + k] as unknown as { noul: number }).noul));
@@ -162,8 +166,9 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     // A ship runs one manoeuvre at a time, and a manoeuvre already covers movement: a second manoeuvre
     // would replace it and a plain "full ahead" in the same breath would cancel it.
     if (command?.op === 'behaviour' && (c.op === 'behaviour' || c.op === 'setSpeed' || c.op === 'turn' || c.op === 'climb' || c.op === 'setHeading')) continue;
-    // "Open fire" is not "engage": a fire order must not start the ship moving.
+    // "Open fire" is not "engage": a fire order must not start the ship moving. And engage already frees the guns.
     if (command?.op === 'fire' && c.op === 'behaviour' && c.id === 'engage') continue;
+    if (command?.op === 'behaviour' && command.id === 'engage' && c.op === 'fire') continue;
     extras.push(c);
   }
   const confidence = Math.min(...used.map(prob));
