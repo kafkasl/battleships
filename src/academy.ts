@@ -58,9 +58,20 @@ ${EXAMPLES.map((x) => `Request: "${x.request}"\n${JSON.stringify(x.spec)}`).join
   return b;
 }
 
-/** Behaviours learned in earlier sessions come back from localStorage. */
+/**
+ * Behaviours learned in earlier sessions come back from localStorage. A fresh browser gets the two
+ * rehearsed manoeuvres preloaded so the hands-on crowd can use them at once; `?stage` in the URL
+ * starts empty so the teaching moment can be shown live.
+ */
 export function restore(): Behaviour[] {
   const out: Behaviour[] = [];
+  if (location.search.includes('stage')) { forgetAll(); return out; }
+  let any = false;
+  try { for (let i = 0; i < localStorage.length; i++) if (localStorage.key(i)!.startsWith('behaviour:')) any = true; } catch { /* ignore */ }
+  if (!any) {
+    for (const x of EXAMPLES) { out.push(compile(x.spec)); try { localStorage.setItem('behaviour:' + x.spec.id, JSON.stringify(x.spec)); } catch { /* ignore */ } }
+    return out;
+  }
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)!;

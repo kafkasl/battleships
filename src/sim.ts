@@ -19,9 +19,9 @@ export interface ShipType {
 }
 
 export const SHIP_TYPES: Record<string, ShipType> = {
-  capital: { id: 'capital', length: 150, speedMax: 18, turnRate: 9, climbRate: 10, accel: 0.25, sensorRange: 600, hull: 200, weaponRange: 380, fireRate: 0.5, damage: 6 },
-  frigate: { id: 'frigate', length: 55, speedMax: 34, turnRate: 24, climbRate: 20, accel: 0.5, sensorRange: 600, hull: 80, weaponRange: 300, fireRate: 1.0, damage: 3 },
-  fighter: { id: 'fighter', length: 10, speedMax: 60, turnRate: 70, climbRate: 40, accel: 1.2, sensorRange: 600, hull: 30, weaponRange: 200, fireRate: 2.0, damage: 1 },
+  capital: { id: 'capital', length: 150, speedMax: 18, turnRate: 9, climbRate: 10, accel: 0.25, sensorRange: 600, hull: 200, weaponRange: 380, fireRate: 0.8, damage: 9 },
+  frigate: { id: 'frigate', length: 55, speedMax: 34, turnRate: 24, climbRate: 20, accel: 0.5, sensorRange: 600, hull: 80, weaponRange: 300, fireRate: 1.2, damage: 5 },
+  fighter: { id: 'fighter', length: 10, speedMax: 60, turnRate: 70, climbRate: 40, accel: 1.2, sensorRange: 600, hull: 30, weaponRange: 200, fireRate: 2.5, damage: 1.6 },
 };
 
 /** Guns cover everything except a cone astern this wide (degrees). Forward and side batteries only. */

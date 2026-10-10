@@ -114,3 +114,24 @@ function apiFor(sim: Sim, s: Ship, dt: number): BehaviourAPI {
     remember: s.memory,
   };
 }
+
+/**
+ * Built in: close with the nearest enemy and keep it ahead or abeam so the guns stay on it.
+ * This is what "engage the enemy" means, and the one order a stranger needs.
+ */
+export const ENGAGE = compile({
+  id: 'engage',
+  name: 'Engage',
+  description: 'close with the enemy and fight: engage, attack, go get them, charge, take the fight to them, hunt them down',
+  code: `
+const e = api.nearest;
+api.weaponsFree(true);
+if (!e) { api.setSpeed('half'); return; }
+const range = api.me.weaponRange;
+if (e.dist > range * 0.85) { api.setHeading(e.bearing); api.setSpeed('full'); return; }
+// Inside range: angle off the target so we neither ram it nor overshoot, and it stays out of the blind cone.
+const side = api.remember.side ?? (api.remember.side = api.me.name.length % 2 ? 1 : -1);
+api.setHeading(e.bearing + side * 55);
+api.setSpeed(e.dist < range * 0.35 ? 'slow' : 'half');
+`,
+});

@@ -14,7 +14,7 @@ export interface Addressing {
 type Tier = 'sure' | 'hedge' | 'refused' | 'info' | 'academy' | 'learned';
 const tier = (conf: number): Tier => (conf >= 0.7 ? 'sure' : conf >= 0.45 ? 'hedge' : 'refused');
 
-const learned = (): Learned => Object.fromEntries([...behaviours.values()].map((b) => [b.id, { description: b.description, name: b.name }]));
+const learned = (): Learned => Object.fromEntries([...behaviours.values()].filter((b) => b.id !== 'engage').map((b) => [b.id, { description: b.description, name: b.name }]));
 
 export function installConsole(sim: Sim, flagship: () => Ship, addressing: () => Addressing,
                                onOrder: (ship: Ship) => void, onLearned: (name: string) => void = () => {}) {
@@ -39,7 +39,7 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
   paintArm();
   chips.appendChild(arm);
   // Tappable example orders: a stranger (or a phone) can play without typing a word.
-  for (const text of ['all ships, weapons free and full ahead', 'fighters, stay behind the Vigilant', 'frigates, circle the Ravager while firing', 'Alpha 1, belay that', 'all ships report']) {
+  for (const text of ['all ships, engage the enemy', 'fighters, stay behind the Vigilant', 'frigates, circle the Ravager while firing', 'all ships, belay that', 'all ships report']) {
     const b = document.createElement('button');
     b.textContent = text;
     b.addEventListener('click', () => { submit(text); input.blur(); });
@@ -120,7 +120,11 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
         }
         return;
       }
-      if (!d.command || d.intent === 'none') { line('refused', flagship(), 'Say again, captain?'); return; }
+      if (!d.command || d.intent === 'none') {
+        // The choice found nothing, but a yes/no may have ("kestrel heron stop" with the vote split three ways).
+        if (ships.length && d.extras.length) { carryOut(ships, d.extras, 'hedge'); return; }
+        line('refused', flagship(), 'Say again, captain?'); return;
+      }
       const t = tier(d.confidence);
       if (t === 'refused') { line('refused', speaker, `Say again, captain? ${weakest(d)}`); return; }
       if (!ships.length) { line('refused', flagship(), `No ship called ${d.ship}.`); return; }

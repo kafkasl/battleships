@@ -9,12 +9,13 @@ type Choice = { type: 'choice'; instructions: string; criteria: Record<string, s
 const choice = (instructions: string, criteria: Record<string, string | null>): Choice => ({ type: 'choice', instructions, criteria });
 
 export const INTENTS = {
-  setSpeed: 'change how fast the ship moves: full ahead, all ahead, go forward, advance, move out, half speed, slow, all stop, stop engines',
+  setSpeed: 'change how fast the ship moves: full ahead, all ahead, go forward, advance, move out, half speed, slow, stop, halt, all stop, stop engines',
   turn: 'rotate the ship: turn left / right / port / starboard, come about, hard to port',
   climb: 'change altitude: climb, go up, dive, descend, go down, rise',
-  fire: 'start shooting and nothing else: open fire, weapons free, engage, fire at will',
+  engage: 'close with the enemy and fight: engage, attack, go get them, charge, take the fight to them, hunt them down',
+  fire: 'start shooting and nothing else, without moving: open fire, weapons free, fire at will',
   holdFire: 'stop shooting: hold fire, cease fire, stand down, weapons hold',
-  stopBehaviour: 'cancel the current manoeuvre: belay that, stop that, as you were, break off',
+  stopBehaviour: 'cancel the current manoeuvre: belay that, as you were, break off, cancel the manoeuvre',
   assignCrew: 'move crew to a station: man the engines, put two on sensors, crew the weapons',
   report: 'ask for a status report: report, status, sitrep, what are you doing, where are you',
   unsupported: 'a real order, but one the ship has no way to carry out: formations, get in front of, follow, escort, intercept, dock, retreat to, repair, go to a place, circle, orbit, flank, wheel around something, anything not in the list above',
@@ -24,7 +25,7 @@ export const INTENTS = {
 const QUESTIONS = {
   intent: choice('What kind of order did the captain give?', INTENTS),
   speedLevel: choice('If this is a speed order, which speed is requested?', {
-    stop: 'stop, halt, all stop, cut engines', slow: 'slow, a third, dead slow, creep',
+    stop: 'stop, halt, all stop, hold position, cut engines', slow: 'slow, a third, dead slow, creep',
     half: 'half speed, cruise', full: 'full speed, full ahead, all ahead, all ahead full, go forward, advance, flank, maximum, punch it',
   }),
   turnDir: choice('If this is a turn order, which way?', { left: 'left, port, counter-clockwise', right: 'right, starboard, clockwise' }),
@@ -82,7 +83,7 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   // second verb in "full ahead and engage". The choice stays primary because it is far better at
   // telling an unsupported request from noise.
   const WANTS: Record<string, string> = {
-    setSpeed: INTENTS.setSpeed, turn: INTENTS.turn, climb: INTENTS.climb, fire: INTENTS.fire, holdFire: INTENTS.holdFire,
+    setSpeed: INTENTS.setSpeed, turn: INTENTS.turn, climb: INTENTS.climb, engage: INTENTS.engage, fire: INTENTS.fire, holdFire: INTENTS.holdFire,
     assignCrew: INTENTS.assignCrew, report: INTENTS.report, stopBehaviour: INTENTS.stopBehaviour,
   };
   for (const [id, b] of Object.entries(learned)) WANTS['do_' + id] = `the manoeuvre "${b.name}": ${b.description}`;
@@ -138,6 +139,7 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     case 'setSpeed': used.push(a('speedLevel')); command = { op: 'setSpeed', level: a('speedLevel').choice as 'stop' | 'slow' | 'half' | 'full' }; break;
     case 'turn': used.push(a('turnDir')); if (n === undefined) used.push(a('turnAmount')); command = { op: 'turn', dir: a('turnDir').choice as 'left' | 'right', amount: n ?? Number(a('turnAmount').choice) }; break;
     case 'climb': used.push(a('climbDir')); if (n === undefined) used.push(a('climbAmount')); command = { op: 'climb', amount: (a('climbDir').choice === 'down' ? -1 : 1) * (n ?? Number(a('climbAmount').choice)) }; break;
+    case 'engage': command = { op: 'behaviour', id: 'engage', name: 'Engage' }; break;
     case 'fire': command = { op: 'fire' }; break;
     case 'holdFire': command = { op: 'holdFire' }; break;
     case 'stopBehaviour': command = { op: 'stopBehaviour' }; break;
