@@ -50,6 +50,10 @@
     #academy-toggle.on { background: #c28bff; color: #1a0a20; }
     #forget { color: #ff9a7a; border-color: rgba(255, 154, 122, 0.4); }
     .man-chip { color: #e8d8ff; border-color: rgba(194, 139, 255, 0.6) !important; }
+    .man-chip.standing { color: #ffd59a; border-color: rgba(255, 193, 77, 0.5) !important; }
+    .man-chip.standing.on { background: rgba(255, 193, 77, 0.3); border-color: #ffc14d !important; }
+    .line.standing { border-left-color: #ffc14d; } .line.standing .text { color: #ffe0a3; }
+    #tray b.st { color: #ffc14d; display: block; margin-top: 6px; }
     .line.academy { border-left-color: #c28bff; animation: pulse 1.2s ease-in-out infinite; }
     .line.learned { border-left-color: #c28bff; }
     .badge.academy { color: #c28bff; border-color: #c28bff; }
@@ -98,7 +102,7 @@
       <div class="board"></div>
     </div>
   </div>
-  <div id="goal"><b>Goal: destroy the other fleet in 90 seconds. You command Mother, Red, Blue and the Eagles. A second player can say "red fleet, …".</b></div>
+  <div id="goal"><b>Goal: destroy the other fleet in 3 minutes.</b></div>
   <div id="hud">Enter: give an order · + Add manoeuvre: teach the fleet something new · Start (or Space) when ready<br/>drag: orbit · right-drag or screen edge: pan · wheel: zoom · wasd: move · click ship: card · L: unlock / lock camera · G: grid · `: debug · H: hide this</div>
   <script type="module" src="/src/main.ts"></script>
 </body>

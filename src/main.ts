@@ -12,6 +12,8 @@ import { installConsole } from './console';
 import { runBehaviours, behaviours, ENGAGE } from './behaviours';
 void ENGAGE; // registered on import
 import { restore } from './academy';
+import { standing, runStanding, situation } from './standing';
+import { judgeStanding } from './jev';
 import { BeamSystem, ExplosionSystem, flickerEngine, makeDust, makeGrid } from './fx';
 
 // ---- Renderer / scene / camera ------------------------------------------
@@ -129,10 +131,8 @@ const raiders = [1, 2, 3].map((n) => sim.add(makeSimShip({
   id: `drone${n}`, name: `Drone ${n}`, type: 'fighter', faction: 'enemy', color: '#ff8a7a', weaponsFree: true,
   pos: { x: 40 - (n - 2) * 50, y: 14, z: -360 }, heading: 180, desiredHeading: 180, desiredAltitude: 14 })));
 const hostiles = [foe, ...enemyFrigates, ...raiders];
-// Enemy doctrine: the whole line advances as a block at the capital ship's cruising speed, guns free, straight down
-// the arena. Each class gets the throttle that matches that absolute speed.
-const blockSpeed = SHIP_TYPES.capital.speedMax * 0.6;
-for (const h of hostiles) h.desiredSpeed = Math.min(1, blockSpeed / SHIP_TYPES[h.type].speedMax);
+// Enemy doctrine: every red ship engages. After the fleets pass each other it turns and comes back for you.
+for (const h of hostiles) { h.behaviour = 'engage'; h.memory = {}; }
 // The fleet you command. Names are chosen to be easy to say out loud.
 const red = sim.add(makeSimShip({ id: 'red', name: 'Red', type: 'frigate', faction: 'player', color: '#7fd3ff',
   pos: { x: -170, y: 6, z: 490 }, desiredAltitude: 6 }));
@@ -179,7 +179,7 @@ function addressing() {
 const flash = new Map<string, number>();
 // ---- Match: one run until Ravager or Vigilant dies, or the clock runs out. --------------------
 
-const MATCH_SECONDS = 90;
+const MATCH_SECONDS = 180;
 const match = { started: 0, over: false, kills: 0, losses: 0, outcome: '' };
 const ui = installConsole(sim, () => player, addressing,
   (s) => { flash.set(s.id, performance.now()); },
@@ -229,12 +229,13 @@ addEventListener('keydown', (e) => { if (e.key === ' ' && document.activeElement
 const tray = document.getElementById('tray')!;
 function updateTray() {
   const taught = [...behaviours.values()].filter((b) => b.id !== 'engage');   // Engage is an order, not something you taught
-  if (!taught.length) { tray.style.display = 'none'; return; }
+  if (!taught.length && !standing.size) { tray.style.display = 'none'; return; }
   tray.style.display = '';
-  tray.innerHTML = '<b>Manoeuvres</b>' + taught.map((b) => {
+  tray.innerHTML = (taught.length ? '<b>Manoeuvres</b>' + taught.map((b) => {
     const n = [...sim.ships.values()].filter((s) => s.behaviour === b.id && s.faction === 'player').length;
     return `<div class="man"><span class="name">${b.name}</span><span class="n">${n ? n + ' ship' + (n > 1 ? 's' : '') : 'idle'}</span></div>`;
-  }).join('');
+  }).join('') : '') + (standing.size ? '<b class="st">Standing orders</b>' + [...standing.values()].map((o) =>
+    `<div class="man"><span class="name">${o.firing.size ? '● ' : ''}${o.spec.name}</span><span class="n">${o.armed ? (o.firing.size ? o.firing.size + ' acting' : 'armed') : 'off'}</span></div>`).join('') : '');
 }
 
 // Ship card: hover previews a ship, click pins it. Defaults to the flagship.
@@ -326,7 +327,10 @@ function syncVisual(s: Ship) {
   if (!v) return;
   v.root.position.set(s.pos.x, s.pos.y, s.pos.z);
   v.root.rotation.set(0, -s.heading * Math.PI / 180, 0);
-  v.root.rotateZ(THREE.MathUtils.clamp(s.turning * 0.03, -0.25, 0.25));   // bank into turns
+  // Bank into turns, eased so the roll never snaps.
+  const targetRoll = THREE.MathUtils.clamp(s.turning * 0.02, -0.2, 0.2);
+  v.root.userData.roll = THREE.MathUtils.lerp(v.root.userData.roll ?? 0, targetRoll, 0.06);
+  v.root.rotateZ(v.root.userData.roll);
   v.engines.forEach((e) => { const k = 0.35 + 0.65 * s.speed; (e.children[1] as THREE.Sprite).scale.setScalar(e.userData.base * 2.4 * k); });
   let d = dropLines.get(s.id);
   if (!d) {
@@ -413,6 +417,9 @@ function tick() {
   if (match.started) {
     runBehaviours(sim, dt, (s, e) => { ui.line('refused', s, `I'm too dumb for that, captain. (${String(e)})`); });
     sim.tick(dt);
+    void runStanding(sim, performance.now(), (label) => addressing().resolve(label),
+      (ships, order) => judgeStanding(order, ships, Object.fromEntries(ships.map((s) => [s.id, situation(sim, s)]))),
+      (s, text, firing) => { ui.line(firing ? 'standing' : 'info', s, text); if (firing) flash.set(s.id, performance.now()); });
   }
   for (const s of sim.ships.values()) syncVisual(s);
   for (const v of visuals.values()) { v.engines.forEach((e, i) => flickerEngine(e, t, v.seed + i)); blinkLights(v, t); }

@@ -189,3 +189,24 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   else if (confidence < 0.45) { out.reason = `unsure (${Math.round(confidence * 100)}%)`; out.command = null; }
   return out;
 }
+
+
+/**
+ * Ask Jev a standing-order question for each ship, one request per ship in parallel. Several ships in
+ * one state made Jev read the wrong line; alone, its judgement on thresholds was exact in every probe.
+ */
+export async function judgeStanding(order: { spec: { question: string; actions: Record<string, { description: string }> } },
+                                    ships: { id: string; name: string }[], situations: Record<string, string>) {
+  const criteria: Record<string, string> = { none: 'the condition does not apply right now' };
+  for (const [k, a] of Object.entries(order.spec.actions)) criteria[k] = a.description;
+  const out: Record<string, { choice: string; p: number }> = {};
+  await Promise.all(ships.map(async (s) => {
+    const r = await fetch('/jev', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'jev-latest', state: `Situation report:\n${situations[s.id]}`,
+        questions: { s: choice(`For ${s.name}: ${order.spec.question}`, criteria) } }) });
+    if (!r.ok) throw new Error(`jev ${r.status}`);
+    const a = ((await r.json()).answers as Record<string, JevAnswer>).s;
+    if (a) out[s.id] = { choice: a.choice, p: a.probabilities[a.choice] ?? a.confidence };
+  }));
+  return out;
+}

@@ -3,6 +3,7 @@
 import { parse, execute, report } from './commands';
 import { dispatch, type Roster, type Dispatch, type Learned, type Order } from './jev';
 import { behaviours } from './behaviours';
+import { standing } from './standing';
 import { learn, forgetAll } from './academy';
 import type { Sim, Ship } from './sim';
 
@@ -11,7 +12,7 @@ export interface Addressing {
   resolve: (label: string) => Ship[];               // label -> ships to order
 }
 
-type Tier = 'sure' | 'hedge' | 'refused' | 'info' | 'academy' | 'learned';
+type Tier = 'sure' | 'hedge' | 'refused' | 'info' | 'academy' | 'learned' | 'standing';
 // Orders are obeyed down to 40%: a hedged readback beats a refusal when the captain is only giving a few.
 const tier = (conf: number): Tier => (conf >= 0.6 ? 'sure' : conf >= 0.4 ? 'hedge' : 'refused');
 
@@ -57,6 +58,15 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
       btn.addEventListener('click', () => { submit(b.request ?? b.name); input.blur(); });
       chips.appendChild(btn);
     }
+    // Standing orders are toggles: lit while armed.
+    for (const o of standing.values()) {
+      const btn = document.createElement('button');
+      btn.className = 'man-chip standing' + (o.armed ? ' on' : '');
+      btn.textContent = (o.armed ? '● ' : '○ ') + o.spec.name;
+      btn.title = `${o.spec.request ?? o.spec.question} (${o.spec.ships})`;
+      btn.addEventListener('click', () => { o.armed = !o.armed; if (!o.armed) o.firing.clear(); renderChips(); input.blur(); });
+      chips.appendChild(btn);
+    }
   };
   let debug = false;
 
@@ -64,6 +74,7 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
     const d = document.createElement('div');
     d.className = `line ${t}`;
     const badge = ship ? `<span class="badge" style="color:${ship.color};border-color:${ship.color}">${ship.name}</span>` : t === 'academy' || t === 'learned' ? '<span class="badge academy">Academy</span>' : '<span class="badge you">You</span>';
+    if (t === 'standing') d.title = 'standing order, judged by Jev';
     d.innerHTML = `${badge}<span class="text"></span>${detail ? '<span class="detail"></span>' : ''}`;
     (d.querySelector('.text') as HTMLSpanElement).textContent = text;
     if (detail) (d.querySelector('.detail') as HTMLSpanElement).textContent = detail;
@@ -127,9 +138,17 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
         const teaching = line('academy', null, `writing a manoeuvre for "${text}"…`);
         teaching.insertAdjacentHTML('beforeend', '<div class="progress"><div></div></div>');
         try {
-          const b = await learn(text, [...behaviours.keys()]);
+          const b = await learn(text, [...behaviours.keys(), ...standing.keys()]);
           teaching.className = 'line learned';
           teaching.querySelector('.progress')?.remove();
+          if ('spec' in b) {
+            // A standing order: armed at once, judged by Jev every second until switched off.
+            b.armed = true;
+            (teaching.querySelector('.text') as HTMLSpanElement).textContent = `standing order "${b.spec.name}" armed for ${b.spec.ships}. Jev judges it every second.`;
+            onLearned(b.spec.name);
+            renderChips();
+            return;
+          }
           (teaching.querySelector('.text') as HTMLSpanElement).textContent = `new manoeuvre "${b.name}" ready. Ask for it any time.`;
           onLearned(b.name);
           renderChips();
