@@ -44,7 +44,7 @@ type Ship = {
   faction: 'player' | 'enemy' | 'neutral';
   pos: Vec3; heading: number;          // degrees, 2D plane for gameplay; render adds banking/pitch for looks
   speed: number;                       // actual, 0..1
-  desiredSpeed: number; desiredHeading: number;   // sim moves speed/heading toward these at fixed rates
+  desiredSpeed: number; desiredHeading: number; desiredAltitude: number;   // sim eases toward these at fixed rates
   hull: number;
   crew: number;                        // total available
   stations: Record<StationId, number>; // crew assigned per station
@@ -53,14 +53,16 @@ type Ship = {
 };
 ```
 
-Movement is kinematic: desired speed + desired heading. No acceleration/momentum.
-Heavier ships simply get lower speedMax / turnRate in their type config.
+Movement is kinematic: desired speed + desired heading + desired altitude. No momentum.
+Heavier ships get lower speedMax / turnRate / climbRate in their type config.
+Altitude is the Homeworld 3D touch: voice makes it cheap ("climb 50", "dive to grid level"),
+and each ship draws a drop line to its shadow on the grid.
 
 ### Stations (gate everything)
 
 | Station | Unlocks |
 |---|---|
-| engines | set speed, set heading |
+| engines | set speed, set heading, climb / dive |
 | sensoria | contacts within radius R appear (as unresolved returns) |
 | analysis | contacts get classified: rock / ship / enemy / friendly |
 | weapons | fire at target |
@@ -82,6 +84,7 @@ Build this in step 2 so it is designed with the post-effects, not bolted on.
 setSpeed(ship, level)           level: stop | slow | half | full
 turn(ship, dir, amount)         dir: left | right ; amount: 15 | 30 | 45 | 90 | 180
 setHeading(ship, deg)
+climb(ship, amount) / setAltitude(ship, y)    amount buckets: 25 | 50 | 100 ; negative = dive
 fire(ship, target?)
 assignCrew(ship, station, n)    or moveCrew(ship, from, to)
 addRule(ship, rule) / removeRule(ship, idx) / listRules(ship)
@@ -112,7 +115,7 @@ Env var `TYPESAFE_API_KEY`. Docs: https://docs.typesafe.ai/llms.txt
 2. One `systemOne` call with the transcript as `state` and a fixed question set:
    - `intent`: choice over { setSpeed, turn, fire, assignCrew, addRule, listRules, none }
    - `ship`: choice over current ship names + "flagship"
-   - `speedLevel`, `turnDir`, `turnAmount`, `station`, `triggerKind`, ... : one choice per closed-set argument
+   - `speedLevel`, `turnDir`, `turnAmount`, `climbDir`, `climbAmount`, `station`, `triggerKind`, ... : one choice per closed-set argument
    - `stated_<arg>`: noul "did the user mention <arg>?" so defaults apply when unmentioned
 3. Dispatcher (same pattern as the TypeSafe function-calling cookbook) reads only the answers
    relevant to the chosen intent, builds the Command API call, checks confidence.
@@ -130,10 +133,10 @@ sub-second, voice feels instant. If not, show a "processing" cue on the HUD.
 ## 5. Derisking steps (stop and judge after each)
 
 1. **Visuals.** Nebula, bloom, stars, one Quaternius ship with engine glow, mouse camera.
-   If this does not look great, nothing else matters.
+   If this does not look great, nothing else matters. DONE (capital ships are procedural, `src/capital.ts`; Quaternius only had fighters).
 2. **Contact rendering.** Second ship invisible → glowing return → resolved model as it enters
    range / gets classified.
-3. **Sim + Command API.** Kinematic ship, stations gating commands, driven from a debug text box.
+3. **Sim + Command API.** Kinematic ship (speed/heading/altitude), stations gating commands, driven from a debug text box. DONE: `src/sim.ts`, `src/commands.ts`, `src/console.ts`.
 4. **Jev.** Speech → transcript → systemOne → command. Measure latency and accuracy on ~20 phrases.
 5. **Rules + enemies.** Rule engine, enemy ships with rules, weapons, hull damage. A battle.
 6. **Polish.** Beams, explosions, debris, HUD for crew/rules/contacts, voice feedback.
@@ -142,7 +145,7 @@ sub-second, voice feels instant. If not, show a "processing" cue on the HUD.
 
 - Single flagship for the player (fleet later, if ever). Camera defaults to it.
 - Kinematic movement (desired speed / heading), not acceleration.
-- Gameplay on a 2D plane; render adds pitch/bank for looks.
+- Gameplay on a plane plus an altitude primitive (Homeworld style); render adds bank for looks.
 - Ship names are the voice handle; every ship gets a readable name.
 - Rules are data (JSON), shown on screen and readable back by voice.
 - Jev never sits inside the game loop; it only translates speech once per utterance.

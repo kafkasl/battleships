@@ -14,13 +14,19 @@
       pointer-events: none; text-shadow: 0 0 12px rgba(255, 180, 120, 0.4);
     }
     #hud b { display: block; font-size: 18px; letter-spacing: 0.35em; }
+    #console { position: fixed; right: 24px; bottom: 20px; width: 460px; font: 12px/1.5 "SF Mono", Menlo, monospace; color: #e8d2c0; }
+    #log { margin-bottom: 6px; text-shadow: 0 0 8px rgba(0,0,0,0.8); }
+    #log .in { color: #9fc8ff; } #log .ok { color: #c8e8c0; } #log .err { color: #ff9a7a; }
+    #cmd { width: 100%; box-sizing: border-box; background: rgba(10, 4, 6, 0.55); border: 1px solid rgba(95, 200, 255, 0.35);
+      color: #e8f4ff; padding: 8px 10px; font: inherit; outline: none; backdrop-filter: blur(6px); }
+    #cmd:focus { border-color: rgba(95, 200, 255, 0.9); }
     #loading { position: fixed; inset: 0; display: grid; place-items: center; color: #e8d2c0;
       font: 14px "SF Mono", Menlo, monospace; letter-spacing: 0.3em; pointer-events: none; }
   </style>
 </head>
 <body>
   <div id="loading">LOADING FLEET</div>
-  <div id="hud"><b>Battlefleet</b>drag: orbit · right-drag: pan · wheel: zoom · g: grid</div>
+  <div id="hud"><b>Battlefleet</b><span id="status"></span><br/>drag: orbit · right-drag: pan · wheel: zoom · g: grid · enter: command</div>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
