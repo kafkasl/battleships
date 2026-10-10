@@ -25,7 +25,7 @@ By hand: product direction and every design decision in `PLAN.md` (voice-only co
 npm install
 export TYPESAFE_API_KEY=...   # Jev
 export ANTHROPIC_API_KEY=...  # academy
-npm run dev                   # http://localhost:5173 ; add ?stage to start without preloaded manoeuvres
+npm run dev                   # http://localhost:5173 ; add ?stage to start with no learned manoeuvres
 ```
 
 Both keys stay on the dev server: Vite proxies `/jev` and `/claude` and adds the headers.

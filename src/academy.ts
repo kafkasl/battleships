@@ -58,23 +58,10 @@ ${EXAMPLES.map((x) => `Request: "${x.request}"\n${JSON.stringify(x.spec)}`).join
   return b;
 }
 
-/**
- * Behaviours learned in earlier sessions come back from localStorage. A fresh browser gets the two
- * rehearsed manoeuvres preloaded so the hands-on crowd can use them at once; `?stage` in the URL
- * starts empty so the teaching moment can be shown live.
- */
+/** Behaviours learned in earlier sessions come back from localStorage. `?stage` in the URL starts empty. */
 export function restore(): Behaviour[] {
   const out: Behaviour[] = [];
   if (location.search.includes('stage')) { forgetAll(); return out; }
-  let any = false, cleared = false;
-  try {
-    cleared = localStorage.getItem('manoeuvres:cleared') === '1';
-    for (let i = 0; i < localStorage.length; i++) if (localStorage.key(i)!.startsWith('behaviour:')) any = true;
-  } catch { /* ignore */ }
-  if (!any && !cleared) {
-    for (const x of EXAMPLES) { out.push(compile(x.spec)); try { localStorage.setItem('behaviour:' + x.spec.id, JSON.stringify(x.spec)); } catch { /* ignore */ } }
-    return out;
-  }
   try {
     for (let i = 0; i < localStorage.length; i++) {
       const k = localStorage.key(i)!;
@@ -85,7 +72,6 @@ export function restore(): Behaviour[] {
   return out;
 }
 
-/** Forget every learned manoeuvre. The rehearsed ones are not preloaded again until site data is cleared. */
 export function forgetAll() {
   try {
     for (let i = localStorage.length - 1; i >= 0; i--) { const k = localStorage.key(i)!; if (k.startsWith('behaviour:')) localStorage.removeItem(k); }

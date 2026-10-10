@@ -215,9 +215,10 @@ function endMatch(outcome: string) {
 
 const tray = document.getElementById('tray')!;
 function updateTray() {
-  if (!behaviours.size) { tray.style.display = 'none'; return; }
+  const taught = [...behaviours.values()].filter((b) => b.id !== 'engage');   // Engage is an order, not something you taught
+  if (!taught.length) { tray.style.display = 'none'; return; }
   tray.style.display = '';
-  tray.innerHTML = '<b>Manoeuvres</b>' + [...behaviours.values()].map((b) => {
+  tray.innerHTML = '<b>Manoeuvres</b>' + taught.map((b) => {
     const n = [...sim.ships.values()].filter((s) => s.behaviour === b.id && s.faction === 'player').length;
     return `<div class="man"><span class="name">${b.name}</span><span class="n">${n ? n + ' ship' + (n > 1 ? 's' : '') : 'idle'}</span></div>`;
   }).join('');
