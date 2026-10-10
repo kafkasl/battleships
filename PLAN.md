@@ -130,41 +130,47 @@ Node proxy if deployed.
 **Open question to verify in step 4:** latency per call (docs make no claim). If it is
 sub-second, voice feels instant. If not, show a "processing" cue on the HUD.
 
-## 5. Derisking steps (stop and judge after each)
+## 5. Status (time is short: demo first)
 
-1. **Visuals.** Nebula, bloom, stars, one Quaternius ship with engine glow, mouse camera.
-   If this does not look great, nothing else matters. DONE (capital ships are procedural, `src/capital.ts`; Quaternius only had fighters).
-2. **Contact rendering.** Second ship invisible → glowing return → resolved model as it enters
-   range / gets classified.
-3. **Sim + Command API.** Kinematic ship (speed/heading/altitude), stations gating commands, driven from a debug text box. DONE: `src/sim.ts`, `src/commands.ts`, `src/console.ts`.
-4. **Jev.** Speech → transcript → systemOne → command. Measure latency and accuracy on ~20 phrases.
-5. **Rules + enemies.** Rule engine, enemy ships with rules, weapons, hull damage. A battle.
-6. **Polish.** Beams, explosions, debris, HUD for crew/rules/contacts, voice feedback.
+DONE
+- Visuals: nebula, bloom, grid, procedural capital ships and frigates, Quaternius fighters, travelling beams.
+- Sim: kinematic ships (speed / heading / altitude), crew stations gating commands, contacts from sensors.
+- Jev: typed orders (dictate with MacWhisper) → one Command. Addressing by name, class, group or fleet.
+  Crew-voice readbacks, confidence tiers (green / amber / red), D debug toggle, ship card on hover/click.
+- Fleet: Vigilant (capital), Kestrel + Heron (frigates), Alpha 1-3 (fighters). Enemy: Ravager + escorts.
 
-## 6. Decisions made
+NOT DONE, in demo-value order
+1. Combat that matters. "Fire" does nothing yet; beams are decorative. Needs: fire at nearest
+   known enemy contact, hull damage, ship death with an explosion. Without this there is no battle.
+2. Contact rendering (fog of war). Enemies only visible as glowing returns inside sensor range, resolving
+   to models when analysis is manned. This is the crew mechanic made visible, and the best demo moment:
+   "man the sensors" and the enemy appears.
+3. Rules. "If an enemy is within 200, fire and turn right." Enemy ships run rules too. Cut to the simplest
+   form if time is short: one trigger (enemy within X), one or two actions.
+4. Polish: explosions, hit sparks, camera shake, sound.
 
-- Single flagship for the player (fleet later, if ever). Camera defaults to it.
-- Kinematic movement (desired speed / heading), not acceleration.
-- Gameplay on a plane plus an altitude primitive (Homeworld style); render adds bank for looks.
-- Ship names are the voice handle; every ship gets a readable name.
+CUT for the demo: bridge-staffing confidence mechanic, follow-up questions on low confidence, saving rules,
+multiple player capital ships, 3D rule triggers (above / below).
+
+## 6. Demo script (3 minutes)
+
+1. Open on the fleet in the nebula. Orbit the camera. "This is Battlefleet: you command by voice."
+2. "Vigilant, full ahead." Readback, ship moves, ring pulses. "Fighters, climb 50." Drop lines rise.
+3. "All ships report." Crew voice status. Show the ship card on hover.
+4. "Man the sensors." Enemy returns appear as glows. "Put one on analysis." They resolve into Ravager and escorts.
+5. "Fighters, if an enemy comes within 200, fire." Rule stored, shown. Enemy closes. Fighters open up.
+6. Press D once: "every order is one Jev call, 300 ms, closed-choice questions, no LLM in the loop."
+7. Ravager dies in a bloom of fire. End on the wreck drifting past the grid.
+
+Fallbacks: if speech-to-text misbehaves, type the orders. If Jev misroutes, say the ship name first.
+
+## 7. Decisions made
+
+- Single flagship for the player plus named escorts. Camera defaults to the flagship.
+- Kinematic movement (desired speed / heading / altitude), not acceleration.
+- Ship names are the voice handle; every ship gets a readable name. "all ships" is its own yes/no question
+  to Jev because an "all" option inside the ship question soaked up "all ahead" and "all stop".
+- Tiers use the chosen option's probability, not Jev's separate confidence field.
 - Rules are data (JSON), shown on screen and readable back by voice.
-- Jev never sits inside the game loop; it only translates speech once per utterance.
-
-## 7. Open
-
-- Exact station list and crew counts per ship type.
-- Enemy variety and win/lose condition.
-- Whether to show a mini "sensor scope" HUD in addition to the 3D contacts.
-
-
-## Missing stuff
-
-- Collisions are horrible
-- Loadout screen for mechanics
-- Think what a demo mission could look like, make it engaging
-- They showed Steve Jobs iphone presentation as example of a good demo
-- I think the voice command is revolutionary
-- Age of Empires / Starcraft masters are ranked how many clicks per second they can do, this is clunky
-- Appeal to old gamers, "do you remember having to reassign idle workers to mine / forestry? it even had a button", why not just say "assign all idle workers" in voice while you are on the frontlines, or even better, leave it programmed!
-- Maybe the demo should showcase the "programmable behavior" rather than the loadout mechanics. 
-- Jev can apply intelligent behaviors give some rules, but the rules (ie the task/prompt) needs to be created beforehand, maybe we could use a reasoning model to write those online "e.g. make ships attack the first the find and then circle clockwise". Jev can apply that if it's based on current coordinates, etc... but can't write the prompt.  
+- Jev never sits inside the game loop; it only translates one utterance into one command.
+- No browser speech-to-text; the text box is dictated into with MacWhisper.
