@@ -12,7 +12,7 @@ export const INTENTS = {
   setSpeed: 'change how fast the ship moves: full ahead, all ahead, go forward, advance, move out, half speed, slow, stop, halt, all stop, stop engines',
   turn: 'rotate the ship: turn left / right / port / starboard, come about, hard to port',
   climb: 'change altitude: climb, go up, dive, descend, go down, rise',
-  engage: 'close with the enemy and fight: engage, attack, go get them, charge, take the fight to them, hunt them down',
+  engage: 'close with the enemy and fight: engage, attack, fire on the enemy, go get them, charge, take the fight to them, hunt them down',
   fire: 'start shooting and nothing else, without moving: open fire, weapons free, fire at will',
   holdFire: 'stop shooting: hold fire, cease fire, stand down, weapons hold',
   stopBehaviour: 'cancel the current manoeuvre: belay that, as you were, break off, cancel the manoeuvre',
@@ -101,7 +101,7 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     // Fleet-wide addressing is its own yes/no question. Inside the ship choice, an "all ships" option
     // soaked up every "all ahead" and "all stop".
     fleet: { type: 'noul', instructions: 'Does the captain address every ship in the fleet at once?', criteria: {
-      true: 'the order contains an explicit fleet-wide address: "all ships", "everyone", "everybody", "whole fleet", "fleet,"',
+      true: 'the order contains an explicit fleet-wide address: "all ships", "all battleships", "all units", "all vessels", "everyone", "everybody", "whole fleet", "fleet,"',
       false: 'the order names one ship or one class (Mother, Red, Blue, frigates, fighters, Eagle 2), or names nobody. Words like "all ahead" and "all stop" are speed settings, not addresses',
     } },
   };
@@ -158,8 +158,11 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
     const yes = (answers['wants_' + k] as unknown as { noul: number } | undefined)?.noul ?? 0;
     if (yes < 0.6) continue;
     const c = build(k);
-    // A ship runs one manoeuvre at a time: a second one in the same breath would silently replace the first.
-    if (c && !(c.op === 'behaviour' && command?.op === 'behaviour')) extras.push(c);
+    if (!c) continue;
+    // A ship runs one manoeuvre at a time, and a manoeuvre already covers movement: a second manoeuvre
+    // would replace it and a plain "full ahead" in the same breath would cancel it.
+    if (command?.op === 'behaviour' && (c.op === 'behaviour' || c.op === 'setSpeed' || c.op === 'turn' || c.op === 'climb' || c.op === 'setHeading')) continue;
+    extras.push(c);
   }
   const confidence = Math.min(...used.map(prob));
   const weakest = used.map((u) => [u === ship ? 'ship' : Object.keys(answers).find((k) => answers[k] === u) ?? '?', prob(u)] as const)

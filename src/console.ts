@@ -3,7 +3,7 @@
 import { parse, execute, report } from './commands';
 import { dispatch, type Roster, type Dispatch, type Learned, type Order } from './jev';
 import { behaviours } from './behaviours';
-import { learn } from './academy';
+import { learn, forgetAll } from './academy';
 import type { Sim, Ship } from './sim';
 
 export interface Addressing {
@@ -142,6 +142,7 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
   const submit = (text: string) => {
     text = text.trim();
     if (!text) return;
+    if (text === '/forget') { forgetAll(); location.reload(); return; }
     if (text.startsWith('/')) {
       line('info', null, text);
       const c = parse(text.slice(1));
