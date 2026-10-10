@@ -120,9 +120,9 @@ const sim = new Sim();
 const player = sim.add(makeSimShip({ id: 'mother', name: 'Mother', type: 'capital', faction: 'player', pos: { x: -40, y: 0, z: 560 } }));
 const foe = sim.add(makeSimShip({ id: 'dragon', name: 'Dragon', type: 'capital', faction: 'enemy', color: '#ff6a5a',
   pos: { x: 40, y: 10, z: -560 }, heading: 180, desiredHeading: 180, desiredAltitude: 10, weaponsFree: true, hull: 300 }));
-const raiders = [1, 2, 3, 4].map((n) => sim.add(makeSimShip({
+const raiders = [1, 2, 3, 4, 5, 6, 7].map((n) => sim.add(makeSimShip({
   id: `drone${n}`, name: `Drone ${n}`, type: 'fighter', faction: 'enemy', color: '#ff8a7a', weaponsFree: true, hull: 20,
-  pos: { x: 40 + (n - 2.5) * 70, y: 10 + (n % 2) * 14, z: -460 }, heading: 180, desiredHeading: 180, desiredAltitude: 10 + (n % 2) * 14,
+  pos: { x: 40 + (n - 4) * 60, y: 10 + (n % 2) * 14, z: -460 - (n % 3) * 30 }, heading: 180, desiredHeading: 180, desiredAltitude: 10 + (n % 2) * 14,
 })));
 const hostiles = [foe, ...raiders];
 // The fleet you command. Names are chosen to be easy to say out loud.
