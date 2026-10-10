@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Battlefleet</title>
+  <link rel="icon" href="data:," />
+  <style>
+    html, body { margin: 0; height: 100%; background: #0a0406; overflow: hidden; }
+    canvas { display: block; }
+    #hud {
+      position: fixed; left: 24px; bottom: 20px; color: #e8d2c0; opacity: 0.8;
+      font: 12px/1.5 "SF Mono", Menlo, monospace; letter-spacing: 0.18em; text-transform: uppercase;
+      pointer-events: none; text-shadow: 0 0 12px rgba(255, 180, 120, 0.4);
+    }
+    #hud b { display: block; font-size: 18px; letter-spacing: 0.35em; }
+    #loading { position: fixed; inset: 0; display: grid; place-items: center; color: #e8d2c0;
+      font: 14px "SF Mono", Menlo, monospace; letter-spacing: 0.3em; pointer-events: none; }
+  </style>
+</head>
+<body>
+  <div id="loading">LOADING FLEET</div>
+  <div id="hud"><b>Battlefleet</b>drag: orbit · right-drag: pan · wheel: zoom · g: grid</div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
