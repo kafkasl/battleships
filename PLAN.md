@@ -167,4 +167,4 @@ sub-second, voice feels instant. If not, show a "processing" cue on the HUD.
 - Age of Empires / Starcraft masters are ranked how many clicks per second they can do, this is clunky
 - Appeal to old gamers, "do you remember having to reassign idle workers to mine / forestry? it even had a button", why not just say "assign all idle workers" in voice while you are on the frontlines, or even better, leave it programmed!
 - Maybe the demo should showcase the "programmable behavior" rather than the loadout mechanics. 
-- Intelligent behaviours can 
+- Jev can apply intelligent behaviors give some rules, but the rules (ie the task/prompt) needs to be created beforehand, maybe we could use a reasoning model to write those online "e.g. make ships attack the first the find and then circle clockwise". Jev can apply that if it's based on current coordinates, etc... but can't write the prompt.  

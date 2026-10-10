@@ -111,7 +111,7 @@ const visuals = new Map<string, ShipVisual>();
 /** What Jev may address. Labels resolve to ships; descriptions teach Jev every way to say them. */
 function addressing() {
   const roster: Record<string, string> = {
-    flagship: 'the Vigilant, our capital ship, the flagship, the carrier. Also the default: an order that names no ship, such as "full ahead" or "turn left"',
+    flagship: 'the Vigilant, our capital ship, the flagship, the carrier. Also the default when the order names no particular ship',
     kestrel: 'the frigate Kestrel',
     heron: 'the frigate Heron',
     frigates: 'both frigates: the frigates, the escorts',
@@ -119,7 +119,6 @@ function addressing() {
     alpha2: 'the fighter Alpha 2, alpha two',
     alpha3: 'the fighter Alpha 3, alpha three',
     fighters: 'all three fighters: the fighters, the wing, alpha wing',
-    all: 'only when the order explicitly says "all ships", "whole fleet", "everyone" or "everybody"',
     enemy: 'the enemy ship Ravager, the enemy capital ship, them',
   };
   const resolve = (label: string): Ship[] => {

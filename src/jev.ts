@@ -9,7 +9,7 @@ type Choice = { type: 'choice'; instructions: string; criteria: Record<string, s
 const choice = (instructions: string, criteria: Record<string, string | null>): Choice => ({ type: 'choice', instructions, criteria });
 
 export const INTENTS = {
-  setSpeed: 'change how fast the ship moves: full ahead, half speed, slow, all stop, stop engines',
+  setSpeed: 'change how fast the ship moves: full ahead, all ahead, half speed, slow, all stop, stop engines',
   turn: 'rotate the ship: turn left / right / port / starboard, come about, hard to port',
   climb: 'change altitude: climb, go up, dive, descend, go down, rise',
   fire: 'shoot weapons, open fire, engage target',
@@ -22,7 +22,7 @@ const QUESTIONS = {
   intent: choice('What kind of order did the captain give?', INTENTS),
   speedLevel: choice('If this is a speed order, which speed is requested?', {
     stop: 'stop, halt, all stop, cut engines', slow: 'slow, a third, dead slow, creep',
-    half: 'half speed, cruise', full: 'full speed, full ahead, flank, maximum, punch it',
+    half: 'half speed, cruise', full: 'full speed, full ahead, all ahead, all ahead full, flank, maximum, punch it',
   }),
   turnDir: choice('If this is a turn order, which way?', { left: 'left, port, counter-clockwise', right: 'right, starboard, clockwise' }),
   turnAmount: choice('If this is a turn order, roughly how far in degrees?', {
@@ -68,7 +68,16 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   // Numbers inside ship names ("Alpha 2") must not be read as amounts.
   let stripped = transcript;
   for (const n of shipNames) stripped = stripped.replace(new RegExp(n.replace(/\s+/g, '\\s*'), 'gi'), ' ');
-  const questions = { ...QUESTIONS, ship: choice('Which ship or group is the order addressed to?', roster) };
+  const questions = {
+    ...QUESTIONS,
+    ship: choice('Which ship or group is the order addressed to?', roster),
+    // Fleet-wide addressing is its own yes/no question. Inside the ship choice, an "all ships" option
+    // soaked up every "all ahead" and "all stop".
+    fleet: { type: 'noul', instructions: 'Does the captain address every ship in the fleet at once?', criteria: {
+      true: 'the order contains an explicit fleet-wide address: "all ships", "everyone", "everybody", "whole fleet", "fleet,"',
+      false: 'the order names one ship or one class (Vigilant, Kestrel, frigates, fighters, Alpha 2), or names nobody. Words like "all ahead" and "all stop" are speed settings, not addresses',
+    } },
+  };
   const r = await fetch('/jev', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: 'jev-latest', state: `Captain's order to the fleet: "${transcript}"`, questions }),
@@ -82,12 +91,8 @@ export async function dispatch(transcript: string, roster: Roster, shipNames: st
   // Tier on the chosen option's probability, which is what the debug bars show. Jev's separate
   // `confidence` field is more conservative and hedged on orders as plain as "full ahead".
   const prob = (x: JevAnswer) => x.probabilities[x.choice] ?? x.confidence;
-  let ship = a('ship');
-  // "all" must be explicit. A weak "all" is almost always an unaddressed order, which is the flagship's.
-  if (ship.choice === 'all' && prob(ship) < 0.8) {
-    const p = ship.probabilities;
-    ship = { choice: 'flagship', confidence: ship.confidence, probabilities: { ...p, flagship: (p.flagship ?? 0) + (p.all ?? 0), all: 0 } };
-  }
+  const fleet = (answers.fleet as unknown as { noul: number }).noul;
+  const ship: JevAnswer = fleet >= 0.85 ? { choice: 'all', confidence: fleet, probabilities: { all: fleet } } : a('ship');
   const used: JevAnswer[] = [intent, ship];
   let command: Order | null = null;
   switch (intent.choice) {

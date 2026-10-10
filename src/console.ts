@@ -46,7 +46,8 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
   const detailOf = (d: Dispatch) => {
     const top = (k: string, n = 2) => Object.entries(d.answers[k]?.probabilities ?? {}).sort((a, b) => b[1] - a[1]).slice(0, n)
       .map(([l, p]) => `${l} ${Math.round(p * 100)}%`).join(' / ');
-    return `ship ${top('ship')} · intent ${top('intent')} · weakest ${d.weakest} ${Math.round(d.confidence * 100)}% · ${Math.round(d.latency)} ms · ${JSON.stringify(d.command)}`;
+    const fleet = Math.round(((d.answers.fleet as unknown as { noul: number })?.noul ?? 0) * 100);
+    return `ship ${top('ship')} · fleet ${fleet}% · intent ${top('intent')} · weakest ${d.weakest} ${Math.round(d.confidence * 100)}% · ${Math.round(d.latency)} ms · ${JSON.stringify(d.command)}`;
   };
 
   const viaJev = async (text: string) => {
