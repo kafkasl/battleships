@@ -20,7 +20,7 @@ const EXAMPLES: { request: string; match: RegExp; spec: { id: string; name: stri
   "name": "Form Astern",
   "description": "small ships stay behind the capital ship, frigates and fighters fall in behind the flagship, form up astern of the capital, escorts take station behind the flagship, get behind the big ship, trail the capital ship, shelter behind the flagship",
   "code": "const me = api.me, f = api.flagship;\napi.weaponsFree(true);\nif (me.type === 'capital') return;\nif (!f) { const e = api.nearest; if (e) api.setHeading(e.bearing); api.setSpeed('half'); return; }\nif (api.remember.slot === undefined) {\n  let h = 0; for (let i = 0; i < me.name.length; i++) h = (h * 31 + me.name.charCodeAt(i)) % 997;\n  api.remember.slot = (h % 5) - 2;\n}\nconst range = me.weaponRange || 100;\nconst back = range * 0.5;\nconst lat = api.remember.slot * range * 0.2;\nconst rad = Math.PI / 180;\nconst bh = (f.heading + 180) * rad, sh = (f.heading + 90) * rad;\nconst px = f.x + back * Math.sin(bh) + lat * Math.sin(sh);\nconst pz = f.z - back * Math.cos(bh) - lat * Math.cos(sh);\nconst d = api.distTo(px, pz);\nconst tol = range * 0.15;\nif (d > tol) {\n  api.setHeading(api.bearingTo(px, pz));\n  api.setSpeed(d > range ? 'full' : d > range * 0.4 ? 'half' : 'slow');\n} else {\n  api.setHeading(f.heading);\n  api.setSpeed('half');\n}"
-} },,
+} },
   { request: 'Mother, close in on the Dragon and keep shooting it', match: /dragon|capital|hammer|focus|close in/i, spec: {
   "id": "close_and_hammer",
   "name": "Close and Hammer",
