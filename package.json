@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test": "tsx tests/phrases.test.ts"
+    "test": "tsx tests/phrases.test.ts",
+    "start": "node server.mjs"
   },
   "dependencies": {
     "postprocessing": "^6.39.5",
@@ -18,5 +19,8 @@
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vite": "^8.3.4"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }
