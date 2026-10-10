@@ -40,7 +40,7 @@ controls.minDistance = 15;
 controls.maxDistance = 1800;
 controls.screenSpacePanning = true;
 controls.target.set(-40, 0, 520);
-let followCam = false;
+let followCam = true;   // starts locked on the pinned ship (Mother); L toggles
 
 // ---- Lights --------------------------------------------------------------
 
