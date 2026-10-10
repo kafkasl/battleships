@@ -49,13 +49,19 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
   // One button per taught manoeuvre, labelled with its name; tapping resends the sentence it was taught with.
   const renderChips = () => {
     chips.querySelectorAll('.man-chip').forEach((c) => c.remove());
+    // Active manoeuvres are toggles too: lit while any of our ships runs one; tapping again belays those ships.
     for (const b of behaviours.values()) {
       if (b.id === 'engage') continue;
+      const running = [...sim.ships.values()].filter((s) => s.faction === 'player' && s.behaviour === b.id);
       const btn = document.createElement('button');
-      btn.className = 'man-chip';
-      btn.textContent = '◆ ' + b.name;
+      btn.className = 'man-chip' + (running.length ? ' on' : '');
+      btn.textContent = (running.length ? '◆ ' : '◇ ') + b.name + (running.length ? ` (${running.length})` : '');
       btn.title = b.request ?? b.description;
-      btn.addEventListener('click', () => { submit(b.request ?? b.name); input.blur(); });
+      btn.addEventListener('click', () => {
+        if (running.length) { for (const s of running) { execute(s, { op: 'stopBehaviour' }); line('info', s, `${b.name} belayed.`); } renderChips(); }
+        else submit(b.request ?? b.name);
+        input.blur();
+      });
       chips.appendChild(btn);
     }
     // Standing orders are toggles: lit while armed.
@@ -142,19 +148,17 @@ export function installConsole(sim: Sim, flagship: () => Ship, addressing: () =>
           teaching.className = 'line learned';
           teaching.querySelector('.progress')?.remove();
           if ('spec' in b) {
-            // A standing order: armed at once, judged by Jev every second until switched off.
-            b.armed = true;
-            (teaching.querySelector('.text') as HTMLSpanElement).textContent = `standing order "${b.spec.name}" armed for ${b.spec.ships}. Jev judges it every second.`;
+            // A standing order: created off. Tap its button to arm it; Jev then judges it every second.
+            (teaching.querySelector('.text') as HTMLSpanElement).textContent = `standing order "${b.spec.name}" ready for ${b.spec.ships}. Tap it to arm.`;
             onLearned(b.spec.name);
             renderChips();
             return;
           }
-          (teaching.querySelector('.text') as HTMLSpanElement).textContent = `new manoeuvre "${b.name}" ready. Ask for it any time.`;
+          (teaching.querySelector('.text') as HTMLSpanElement).textContent = `new manoeuvre "${b.name}" ready. Tap it or ask for it any time.`;
           onLearned(b.name);
-          renderChips();
           teaching.dataset.detail = b.code;
-          if (debug) { const sp = document.createElement('span'); sp.className = 'detail'; sp.textContent = b.code; teaching.appendChild(sp); }
-          carryOut(ships.length ? ships : [flagship()], [{ op: 'behaviour', id: b.id, name: b.name }], 'sure');
+          renderChips();
+          return;
         } catch (e) {
           teaching.className = 'line refused';
           teaching.querySelector('.progress')?.remove();

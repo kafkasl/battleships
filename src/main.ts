@@ -226,6 +226,7 @@ const startBtn = document.getElementById('start')!;
 startBtn.addEventListener('click', () => { if (!match.started) { match.started = performance.now(); startBtn.remove(); } });
 addEventListener('keydown', (e) => { if (e.key === ' ' && document.activeElement?.tagName !== 'INPUT' && !match.started) { match.started = performance.now(); startBtn.remove(); } });
 
+let lastSig = '';
 const tray = document.getElementById('tray')!;
 function updateTray() {
   const taught = [...behaviours.values()].filter((b) => b.id !== 'engage');   // Engage is an order, not something you taught
@@ -468,6 +469,9 @@ function tick() {
   explosions.update(performance.now() / 1000, dt);
   updateHullBars();
   updateTray();
+  // Re-render the manoeuvre buttons only when what is running or armed changes.
+  const sig = [...sim.ships.values()].filter((s) => s.faction === 'player').map((s) => s.behaviour ?? '').join(',') + '|' + [...standing.values()].map((o) => `${o.armed}${o.firing.size}`).join(',');
+  if (sig !== lastSig) { lastSig = sig; ui.renderChips(); }
   const clockEl = document.getElementById('clock')!;
   if (match.started && !match.over) {
     const left = Math.max(0, MATCH_SECONDS - (performance.now() - match.started) / 1000);
