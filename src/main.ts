@@ -186,7 +186,8 @@ for (const b of restore()) ui.line('info', null, `Remembered manoeuvre "${b.name
 
 interface Run { name: string; outcome: string; kills: number; losses: number; seconds: number; }
 const loadRuns = (): Run[] => { try { return JSON.parse(localStorage.getItem('runs') ?? '[]'); } catch { return []; } };
-const score = (r: Run) => r.kills * 1000 - r.losses * 300 - r.seconds + (r.outcome === 'victory' ? 5000 : 0);   // a timeout is a defeat: no bonus
+// Victory first, then speed, then kills, then losses. A timeout is a defeat: no bonus.
+const score = (r: Run) => (r.outcome === 'victory' ? 5000 : 0) + r.kills * 500 - r.seconds * 50 - r.losses * 100;
 
 function endMatch(outcome: string) {
   if (match.over) return;
