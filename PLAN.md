@@ -158,17 +158,18 @@ multiple player capital ships, 3D rule triggers (above / below).
 ## 6. Demo script: "why are we still clicking?"
 
 Three runs, one sentence each. Open the stage laptop at `http://localhost:5173/?stage` so no manoeuvre is remembered.
-Ship names: Mother (capital), Red and Blue (frigates), Eagle 1-3 (fighters). Enemy: Dragon and seven drones.
+Ship names: Mother (capital), Red and Blue (frigates), Eagle 1-3 (fighters). The enemy mirrors it: Dragon, Fang, Claw, Drone 1-3,
+all advancing at a steady half speed with guns free. 60-second clock; a timeout is a defeat.
 
 1. **Run 1.** Say: `All ships, full ahead and shoot the enemy.`
-   Every ship answers "Weapons free." then "Full ahead." The fleet charges, overshoots the Dragon, the eagles get it
-   astern in their blind cone, stop firing and die. Expect a costly win. Save the score.
-2. **Run 2.** Play again. Say: `Mother and frigates, full ahead and open fire.`
-   Only those three answer. The eagles sit idle because nobody ordered them. Fewer losses, slower kill. "Safe, but useless."
+   Every ship answers "Weapons free." then "Full ahead." Both fleets charge and pass through each other; ours sail on with
+   the enemy astern in the blind cone and stop firing. The clock runs out: "the Dragon got away". A loss. Save the score.
+2. **Run 2.** Play again. Say: `Mother and frigates, engage the enemy.`
+   Engage is the built-in manoeuvre: close, keep the target ahead or abeam, keep shooting. Win in about 35 s, heavy losses.
 3. **Run 3.** Play again. Same order as run 2. Then press **+ Add manoeuvre** and say:
    `Eagles, stay behind Mother and shoot anything in range.`
    Eagle 1: "we don't know how to do that yet." Violet academy line for ~10 s. "New manoeuvre ready." Each eagle: "aye."
-   The eagles fall in astern of Mother and fire from cover. Expect a win with fewer losses and a higher place on the board.
+   The eagles fall in astern of Mother and fire from cover. Expect a faster win and a higher place on the board.
 
 While the academy works: "that manoeuvre did not exist a moment ago. From now on 'eagles, stay behind Mother' routes to
 it in 300 ms through the classifier. No LLM in the game loop."

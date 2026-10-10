@@ -22,7 +22,7 @@ By hand: product direction and every design decision in `PLAN.md` (voice-only co
 ## The three demo orders
 
 1. `All ships, full ahead and shoot the enemy.`
-2. `Mother and frigates, full ahead and open fire.`
+2. `Mother and frigates, engage the enemy.`
 3. **+ Add manoeuvre** then `Eagles, stay behind Mother and shoot anything in range.`
 
 ## Setup

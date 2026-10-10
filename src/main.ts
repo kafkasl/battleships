@@ -118,14 +118,19 @@ const explosions = new ExplosionSystem(scene);
 
 const sim = new Sim();
 // Fleets face each other, staggered just enough sideways that a straight charge does not pass through the enemy.
-const player = sim.add(makeSimShip({ id: 'mother', name: 'Mother', type: 'capital', faction: 'player', pos: { x: -40, y: 0, z: 450 }, hull: 340 }));
+// Two identical fleets face each other, staggered a little sideways so a straight charge passes alongside.
+const player = sim.add(makeSimShip({ id: 'mother', name: 'Mother', type: 'capital', faction: 'player', pos: { x: -40, y: 0, z: 450 } }));
 const foe = sim.add(makeSimShip({ id: 'dragon', name: 'Dragon', type: 'capital', faction: 'enemy', color: '#ff6a5a',
-  pos: { x: 40, y: 10, z: -450 }, heading: 180, desiredHeading: 180, desiredAltitude: 10, weaponsFree: true, hull: 260 }));
-const raiders = [1, 2, 3, 4, 5, 6, 7].map((n) => sim.add(makeSimShip({
-  id: `drone${n}`, name: `Drone ${n}`, type: 'drone', faction: 'enemy', color: '#ff8a7a', weaponsFree: true,
-  pos: { x: 40 + (n - 4) * 60, y: 10 + (n % 2) * 14, z: -350 - (n % 3) * 30 }, heading: 180, desiredHeading: 180, desiredAltitude: 10 + (n % 2) * 14,
-})));
-const hostiles = [foe, ...raiders];
+  pos: { x: 40, y: 0, z: -450 }, heading: 180, desiredHeading: 180, weaponsFree: true }));
+const enemyFrigates = [['fang', 'Fang', 210], ['claw', 'Claw', -50]].map(([id, name, x]) => sim.add(makeSimShip({
+  id: id as string, name: name as string, type: 'frigate', faction: 'enemy', color: '#ff8a7a', weaponsFree: true,
+  pos: { x: x as number, y: 6, z: -490 }, heading: 180, desiredHeading: 180, desiredAltitude: 6 })));
+const raiders = [1, 2, 3].map((n) => sim.add(makeSimShip({
+  id: `drone${n}`, name: `Drone ${n}`, type: 'fighter', faction: 'enemy', color: '#ff8a7a', weaponsFree: true,
+  pos: { x: 40 - (n - 2) * 50, y: 14, z: -360 }, heading: 180, desiredHeading: 180, desiredAltitude: 14 })));
+const hostiles = [foe, ...enemyFrigates, ...raiders];
+// Enemy doctrine: everyone advances at a steady half speed, guns free, straight down the arena.
+for (const h of hostiles) h.desiredSpeed = 0.6;
 // The fleet you command. Names are chosen to be easy to say out loud.
 const red = sim.add(makeSimShip({ id: 'red', name: 'Red', type: 'frigate', faction: 'player', color: '#7fd3ff',
   pos: { x: -170, y: 6, z: 490 }, desiredAltitude: 6 }));
@@ -135,7 +140,7 @@ const frigates = [red, blue];
 const alphaColors = ['#c9b3ff', '#ffb3d9', '#ffe29a'];
 const alphas = [1, 2, 3].map((n) => sim.add(makeSimShip({
   id: `eagle${n}`, name: `Eagle ${n}`, type: 'fighter', faction: 'player', color: alphaColors[n - 1],
-  pos: { x: -40 + (n - 2) * 50, y: 14, z: 360 }, desiredAltitude: 14,
+  pos: { x: -40 + (n - 2) * 50, y: 14, z: 560 }, desiredAltitude: 14,
 })));
 player.color = '#ffd59a';
 foe.color = '#ff6a5a';
@@ -153,7 +158,7 @@ function addressing() {
     eagle2: 'the fighter Eagle 2, eagle two',
     eagle3: 'the fighter Eagle 3, eagle three',
     fighters: 'all three fighters: the fighters, the eagles, the wing',
-    enemy: 'the enemy ship Dragon, the enemy capital ship, the drones, them',
+    enemy: 'the enemy ship Dragon, the enemy capital ship, Fang, Claw, the drones, them',
   };
   const alive = (ships: Ship[]) => ships.filter((s) => sim.ships.has(s.id));
   const resolve = (label: string): Ship[] => {
@@ -172,7 +177,7 @@ function addressing() {
 const flash = new Map<string, number>();
 // ---- Match: one run until Ravager or Vigilant dies, or the clock runs out. --------------------
 
-const MATCH_SECONDS = 180;
+const MATCH_SECONDS = 60;
 const match = { started: 0, over: false, kills: 0, losses: 0, outcome: '' };
 const ui = installConsole(sim, () => player, addressing,
   (s) => { flash.set(s.id, performance.now()); if (!match.started) match.started = performance.now(); },
@@ -181,7 +186,7 @@ for (const b of restore()) ui.line('info', null, `Remembered manoeuvre "${b.name
 
 interface Run { name: string; outcome: string; kills: number; losses: number; seconds: number; }
 const loadRuns = (): Run[] => { try { return JSON.parse(localStorage.getItem('runs') ?? '[]'); } catch { return []; } };
-const score = (r: Run) => r.kills * 1000 - r.losses * 300 - r.seconds + (r.outcome === 'victory' ? 5000 : 0);
+const score = (r: Run) => r.kills * 1000 - r.losses * 300 - r.seconds + (r.outcome === 'victory' ? 5000 : 0);   // a timeout is a defeat: no bonus
 
 function endMatch(outcome: string) {
   if (match.over) return;
@@ -189,7 +194,7 @@ function endMatch(outcome: string) {
   const seconds = Math.round((performance.now() - match.started) / 1000);
   const el = document.getElementById('results')!;
   el.style.display = '';
-  (el.querySelector('h1') as HTMLElement).textContent = outcome === 'victory' ? 'Dragon destroyed' : outcome === 'defeat' ? 'Mother lost' : 'Time is up';
+  (el.querySelector('h1') as HTMLElement).textContent = outcome === 'victory' ? 'Dragon destroyed' : outcome === 'defeat' ? 'Mother lost' : 'Time is up: the Dragon got away';
   (el.querySelector('.stats') as HTMLElement).textContent = `${seconds}s · ${match.kills} enemy ships destroyed · ${match.losses} ships lost`;
   const nameInput = el.querySelector('input') as HTMLInputElement;
   const renderBoard = (runs: Run[], mine?: Run) => {
@@ -439,13 +444,6 @@ function tick() {
   }
   sim.events.length = 0;
   explosions.update(performance.now() / 1000, dt);
-  // Enemy doctrine for now: hold position, keep the guns on the nearest of ours.
-  for (const h of hostiles) {
-    if (!sim.ships.has(h.id)) continue;
-    let near: Ship | null = null, nd = Infinity;
-    for (const f of fleet) { if (!sim.ships.has(f.id)) continue; const dd = Math.hypot(f.pos.x - h.pos.x, f.pos.z - h.pos.z); if (dd < nd) { nd = dd; near = f; } }
-    if (near) h.desiredHeading = (Math.atan2(near.pos.x - h.pos.x, -(near.pos.z - h.pos.z)) * 180) / Math.PI;
-  }
   updateHullBars();
   updateTray();
   const clockEl = document.getElementById('clock')!;

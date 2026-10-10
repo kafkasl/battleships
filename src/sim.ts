@@ -19,16 +19,15 @@ export interface ShipType {
 }
 
 export const SHIP_TYPES: Record<string, ShipType> = {
-  capital: { id: 'capital', length: 150, speedMax: 30, turnRate: 14, climbRate: 16, accel: 0.4, sensorRange: 600, hull: 200, weaponRange: 380, fireRate: 0.8, damage: 9 },
-  frigate: { id: 'frigate', length: 55, speedMax: 55, turnRate: 38, climbRate: 32, accel: 0.8, sensorRange: 600, hull: 80, weaponRange: 300, fireRate: 1.2, damage: 5 },
-  fighter: { id: 'fighter', length: 10, speedMax: 95, turnRate: 110, climbRate: 64, accel: 2.0, sensorRange: 600, hull: 30, weaponRange: 200, fireRate: 2.5, damage: 1.6 },
-  drone: { id: 'drone', length: 10, speedMax: 80, turnRate: 100, climbRate: 64, accel: 2.0, sensorRange: 600, hull: 16, weaponRange: 200, fireRate: 2.0, damage: 0.8 },
+  capital: { id: 'capital', length: 150, speedMax: 30, turnRate: 14, climbRate: 16, accel: 0.4, sensorRange: 600, hull: 260, weaponRange: 380, fireRate: 1.0, damage: 12 },
+  frigate: { id: 'frigate', length: 55, speedMax: 55, turnRate: 38, climbRate: 32, accel: 0.8, sensorRange: 600, hull: 90, weaponRange: 300, fireRate: 1.5, damage: 6 },
+  fighter: { id: 'fighter', length: 10, speedMax: 95, turnRate: 110, climbRate: 64, accel: 2.0, sensorRange: 600, hull: 30, weaponRange: 200, fireRate: 3.0, damage: 2 },
 };
 
 /** Guns cover everything except a cone astern this wide (degrees). Forward and side batteries only. */
 export const BLIND_CONE = 90;
 /** Half-size of the square battle arena; ships beyond it are turned back. */
-export const ARENA = 800;
+export const ARENA = 1400;
 
 export type SimEvent =
   | { type: 'shot'; from: string; to: string; damage: number }
